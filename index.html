@@ -27,6 +27,7 @@
         h1, h2 {
             text-align: center;
             color: var(--primary-color);
+            margin-bottom: 20px;
         }
         .controls {
             background: var(--card-bg);
@@ -35,19 +36,21 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             margin-bottom: 20px;
             display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
+            justify-content: center;
             align-items: center;
+            gap: 15px;
         }
         .controls label {
             font-weight: bold;
+            font-size: 1.1rem;
         }
-        .controls input[type="text"], .controls select {
-            padding: 8px;
+        .controls select {
+            padding: 10px 15px;
             border: 1px solid var(--border-color);
             border-radius: 4px;
-            flex: 1;
+            font-size: 1rem;
             min-width: 150px;
+            cursor: pointer;
         }
         .controls button {
             background-color: var(--primary-color);
@@ -57,6 +60,7 @@
             border-radius: 4px;
             cursor: pointer;
             font-weight: bold;
+            font-size: 1rem;
             transition: background 0.3s;
         }
         .controls button:hover {
@@ -78,7 +82,7 @@
         }
         th, td {
             border: 1px solid var(--border-color);
-            padding: 10px;
+            padding: 12px 10px;
             text-align: center;
         }
         th {
@@ -97,6 +101,8 @@
             text-align: center;
             font-weight: bold;
             color: var(--primary-color);
+            font-size: 1.2rem;
+            margin: 20px 0;
             display: none;
         }
     </style>
@@ -104,291 +110,7 @@
 <body>
 
 <div class="container">
-    <h1>公費結算與驗算</h1>
+    <h1>公費結算與驗算系統</h1>
     
     <div class="controls">
-        <label for="sheetId">試算表 ID:</label>
-        <input type="text" id="sheetId" placeholder="輸入Google Sheet ID">
-        
-        <label for="monthSelect">選擇月份:</label>
-        <select id="monthSelect"></select>
-        
-        <label for="customMonth">分頁名稱:</label>
-        <input type="text" id="customMonth" placeholder="例如: 2026.6">
-        
-        <button onclick="fetchData()">載入 / 驗算</button>
-    </div>
-
-    <div id="loading">讀取與計算中，請稍候...</div>
-
-    <div id="output" style="display: none;">
-        <div class="card">
-            <h2>這個月支出明細 (B:D欄)</h2>
-            <div id="expensesTable"></div>
-        </div>
-
-        <div class="card">
-            <h2>成員結算與驗算比對 (F:K欄)</h2>
-            <div id="membersTable"></div>
-        </div>
-    </div>
-</div>
-
-<script>
-    // 預設載入前24個月的選項
-    function initMonths() {
-        const select = document.getElementById('monthSelect');
-        const customInput = document.getElementById('customMonth');
-        const today = new Date();
-        let year = today.getFullYear();
-        let month = today.getMonth() + 1;
-
-        for (let i = 0; i < 24; i++) {
-            const option = document.createElement('option');
-            const val = `${year}.${month}`;
-            option.value = val;
-            option.textContent = val;
-            select.appendChild(option);
-
-            month--;
-            if (month === 0) {
-                month = 12;
-                year--;
-            }
-        }
-
-        // 預設將最新月份填入 input
-        customInput.value = select.value;
-        
-        // 綁定連動
-        select.addEventListener('change', (e) => {
-            customInput.value = e.target.value;
-        });
-
-        // 讀取 localStorage 記憶的 Sheet ID
-        const savedId = localStorage.getItem('googleSheetId');
-        if(savedId) {
-            document.getElementById('sheetId').value = savedId;
-        }
-    }
-
-    // CSV 解析器，支援處理引號內的逗號
-    function parseCSV(text) {
-        const lines = text.split(/\r?\n/);
-        return lines.map(line => {
-            const row = [];
-            let curr = '';
-            let inQuotes = false;
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                if (char === '"') {
-                    if (inQuotes && line[i + 1] === '"') {
-                        curr += '"';
-                        i++;
-                    } else {
-                        inQuotes = !inQuotes;
-                    }
-                } else if (char === ',' && !inQuotes) {
-                    row.push(curr.trim());
-                    curr = '';
-                } else {
-                    curr += char;
-                }
-            }
-            row.push(curr.trim());
-            return row;
-        });
-    }
-
-    async function fetchData() {
-        const sheetId = document.getElementById('sheetId').value.trim();
-        const sheetName = document.getElementById('customMonth').value.trim();
-        
-        if(!sheetId) {
-            alert('請輸入試算表 ID！');
-            return;
-        }
-        
-        // 記住 ID，下次不用重填
-        localStorage.setItem('googleSheetId', sheetId);
-        
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('output').style.display = 'none';
-
-        // 利用 Google Sheets Query API 輸出 CSV 格式
-        const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${sheetName}`;
-
-        try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error("網路請求失敗，請確認試算表權限是否公開。");
-            const csvText = await response.text();
-            
-            if (csvText.toLowerCase().includes("<html")) {
-                throw new Error("找不到資料。請確認試算表 ID 正確、分頁名稱存在，且共用權限設為「知道連結的使用者皆可查看」。");
-            }
-
-            processCSV(csvText);
-        } catch (error) {
-            alert(error.message);
-        } finally {
-            document.getElementById('loading').style.display = 'none';
-        }
-    }
-
-    function processCSV(csvText) {
-        const rows = parseCSV(csvText);
-        
-        let expenses = [];
-        let totalShared = 0;
-        let totalElec = 0;
-        let advMap = {};
-        
-        let members = [];
-        let sumDays = 0;
-        let sumElecDays = 0;
-
-        // 逐行解析資料 (略過第0行的標題列)
-        for (let i = 1; i < rows.length; i++) {
-            let row = rows[i];
-            // 若該行為空，略過
-            if (!row || row.join('') === '') continue;
-
-            // --- B:D 欄解析 (索引 1, 2, 3) ---
-            let item = row[1] || "";
-            let priceStr = row[2] || "";
-            let paidBy = row[3] || "";
-            let price = parseFloat(priceStr.replace(/,/g, ''));
-
-            if (item && !isNaN(price) && price > 0) {
-                expenses.push({ item, price, paidBy });
-                
-                // 判斷是否為電費 (不計算進一般佔比)
-                if (item.startsWith("電費")) {
-                    totalElec += price;
-                } else {
-                    totalShared += price;
-                }
-                
-                // 統計代墊金額
-                if (paidBy) {
-                    advMap[paidBy] = (advMap[paidBy] || 0) + price;
-                }
-            }
-
-            // --- F:K 欄解析 (索引 5, 6, 7, 8, 9, 10) ---
-            let memberName = row[5] || "";
-            if (memberName) {
-                let rent = parseFloat(row[6]) || 0;
-                let days = parseFloat(row[7]) || 0;
-                let elecDays = parseFloat(row[9]) || 0;
-                let csvK = parseFloat(row[10]) || 0;
-
-                sumDays += days;
-                sumElecDays += elecDays;
-
-                members.push({ memberName, rent, days, elecDays, csvK });
-            }
-        }
-
-        // --- 重新計算邏輯 (讓 HTML 自己算做驗算) ---
-        let verificationResults = members.map(m => {
-            // 一般公費佔比 = 個人天數 / 總天數
-            let sharePct = sumDays > 0 ? (m.days / sumDays) : 0;
-            // 電費修正佔比 = 個人電天數 / 總電天數
-            let elecPct = sumElecDays > 0 ? (m.elecDays / sumElecDays) : 0;
-
-            let shareCost = totalShared * sharePct;
-            let elecCost = totalElec * elecPct;
-            let advanced = advMap[m.memberName] || 0;
-
-            // 計算合計 (房租 + 佔比公費 + 電費分攤 - 自行代墊)
-            let calculatedK = Math.round(m.rent + shareCost + elecCost - advanced);
-            let diff = calculatedK - m.csvK;
-
-            return {
-                ...m,
-                shareCost: Math.round(shareCost),
-                elecCost: Math.round(elecCost),
-                advanced,
-                calculatedK,
-                diff
-            };
-        });
-
-        renderUI(expenses, verificationResults);
-    }
-
-    function renderUI(expenses, verificationResults) {
-        // 渲染支出明細表
-        let expHtml = `
-            <table>
-                <tr>
-                    <th>項目</th>
-                    <th>總價</th>
-                    <th>代墊人</th>
-                </tr>
-        `;
-        if(expenses.length === 0) {
-            expHtml += `<tr><td colspan="3">目前無資料</td></tr>`;
-        } else {
-            expenses.forEach(e => {
-                expHtml += `
-                    <tr>
-                        <td>${e.item}</td>
-                        <td>${e.price} 元</td>
-                        <td>${e.paidBy || '-'}</td>
-                    </tr>
-                `;
-            });
-        }
-        expHtml += `</table>`;
-        document.getElementById('expensesTable').innerHTML = expHtml;
-
-        // 渲染驗算表
-        let memHtml = `
-            <table>
-                <tr>
-                    <th>成員</th>
-                    <th>自訂房租</th>
-                    <th>公費分擔</th>
-                    <th>電費分擔</th>
-                    <th>代墊扣除</th>
-                    <th>網頁驗算合計</th>
-                    <th>試算表原K欄</th>
-                    <th>驗算狀態</th>
-                </tr>
-        `;
-        if(verificationResults.length === 0) {
-            memHtml += `<tr><td colspan="8">目前無成員資料</td></tr>`;
-        } else {
-            verificationResults.forEach(m => {
-                let statusHtml = m.diff === 0 
-                    ? `<span class="diff-ok">✓ 一致</span>` 
-                    : `<span class="diff-warn">✗ 差 ${Math.abs(m.diff)} 元</span>`;
-
-                memHtml += `
-                    <tr>
-                        <td><strong>${m.memberName}</strong></td>
-                        <td>${m.rent}</td>
-                        <td>+ ${m.shareCost}</td>
-                        <td>+ ${m.elecCost}</td>
-                        <td>- ${m.advanced}</td>
-                        <td><strong>${m.calculatedK}</strong></td>
-                        <td>${m.csvK}</td>
-                        <td>${statusHtml}</td>
-                    </tr>
-                `;
-            });
-        }
-        memHtml += `</table>`;
-        document.getElementById('membersTable').innerHTML = memHtml;
-
-        document.getElementById('output').style.display = 'block';
-    }
-
-    // 網頁載入時初始化
-    window.onload = initMonths;
-</script>
-
-</body>
-</html>
+        <label for="monthSelect">選擇查看
