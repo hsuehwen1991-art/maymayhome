@@ -28,7 +28,7 @@
         /* 橫幅 Banner 樣式 */
         .banner-container {
             width: 100%;
-            height: 450px;
+            height: 250px;
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
@@ -38,7 +38,7 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            object-position: 70% 35%;
+            object-position: center 70% 35%; /* 可自行調整左右或上下對齊，如 20% 35% */
         }
         
         h1 {
@@ -64,6 +64,7 @@
             justify-content: center;
             align-items: center;
             gap: 15px;
+            flex-wrap: wrap; /* 允許元素換行 */
         }
         .controls label {
             font-weight: bold;
@@ -97,13 +98,13 @@
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             margin-bottom: 20px;
-            overflow-x: auto;
+            overflow-x: auto; /* 表格太寬時允許左右滑動 */
         }
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
-            white-space: nowrap;
+            white-space: nowrap; /* 強制文字不換行，保持表格整齊 */
         }
         th, td {
             border: 1px solid var(--border-color);
@@ -126,6 +127,43 @@
             font-size: 1.2rem;
             margin: 20px 0;
             display: none;
+        }
+
+        /* ====== 手機自適應版面 (RWD) ====== */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px; /* 縮小手機版邊距 */
+            }
+            .banner-container {
+                height: 140px; /* 手機版橫幅變矮，避免佔據太多空間 */
+            }
+            h1 {
+                font-size: 1.5rem; /* 縮小標題 */
+                margin: 10px 0 15px 0;
+            }
+            h2 {
+                font-size: 1.25rem;
+            }
+            .controls {
+                flex-direction: column; /* 改為上下排列 */
+                align-items: stretch; /* 讓內容填滿寬度 */
+                padding: 15px;
+            }
+            .controls label {
+                text-align: center;
+            }
+            .controls select, .controls button {
+                width: 100%; /* 下拉選單與按鈕滿版，方便觸控 */
+                font-size: 1.1rem;
+                padding: 12px;
+            }
+            .card {
+                padding: 15px;
+            }
+            th, td {
+                padding: 10px 8px; /* 稍微縮小表格內距 */
+                font-size: 0.95rem;
+            }
         }
     </style>
 </head>
