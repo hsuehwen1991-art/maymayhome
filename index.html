@@ -28,7 +28,7 @@
         /* 橫幅 Banner 樣式 */
         .banner-container {
             width: 100%;
-            height: 250px;
+            height: 450px;
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
@@ -38,7 +38,7 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            object-position: center 35%; /* 左右位置可在此微調 */
+            object-position: center 35%;
         }
         
         h1 {
@@ -171,7 +171,7 @@
 
 <div class="container">
     <div class="banner-container">
-        <img src="littlemaymay.jpg" alt="MayMay Banner" class="banner-img">
+        <img src="littlemaymay.png" alt="MayMay Banner" class="banner-img">
     </div>
     
     <h1>🐈 MayMayHome公費結算系統</h1>
@@ -201,7 +201,7 @@
     // 固定的 Google 試算表 ID
     const SPREADSHEET_ID = '13EYAH1ynGnraSEvDLZ0vo8YWsbvtntf0OHU5iCuTLWE';
 
-    // 初始化月份下拉選單 (產生最近24個月的選項)
+    // 初始化月份下拉選單
     function initMonths() {
         const select = document.getElementById('monthSelect');
         const today = new Date();
@@ -210,7 +210,11 @@
 
         for (let i = 0; i < 24; i++) {
             const option = document.createElement('option');
-            const val = `${year}.${month}`;
+            
+            // 將月份補零，符合你統一的格式 (例如：2026.06)
+            const mZero = month < 10 ? `0${month}` : `${month}`;
+            const val = `${year}.${mZero}`; 
+            
             option.value = val;
             option.textContent = `${year} 年 ${month} 月`;
             select.appendChild(option);
@@ -222,7 +226,6 @@
             }
         }
 
-        // 自動加載最新月份的資料
         fetchData();
     }
 
@@ -255,60 +258,32 @@
     }
 
     async function fetchData() {
-        const baseSheetName = document.getElementById('monthSelect').value;
+        // 現在下拉選單抓出來的值直接就會是 "2026.06" 這種統一格式
+        const sheetName = document.getElementById('monthSelect').value;
         
         document.getElementById('loading').style.display = 'block';
         document.getElementById('output').style.display = 'none';
 
-        // 徹底拆解年份與月份，自動生成所有可能的命名排列組合，全面容錯
-        let namesToTry = [];
-        const parts = baseSheetName.split('.');
-        if (parts.length === 2) {
-            const y = parts[0];
-            const m = parseInt(parts[1], 10);
-            const mZero = m < 10 ? `0${m}` : `${m}`;
+        // 改回使用 gviz API，並加上時間戳記 &t 避免瀏覽器快取舊資料
+        const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&t=${Date.now()}`;
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("網路連線錯誤");
             
-            // 根據歷史分頁習慣，依序嘗試以下 6 種最可能的命名格式
-            namesToTry.push(`${y}.${mZero}`);  // 例：2026.06
-            namesToTry.push(`${y}.${m}`);      // 例：2026.6
-            namesToTry.push(`${m}月`);         // 例：6月
-            namesToTry.push(`${mZero}月`);      // 例：06月
-            namesToTry.push(`${y}/${mZero}`);  // 例：2026/06
-            namesToTry.push(`${y}/${m}`);      // 例：2026/6
-        } else {
-            namesToTry.push(baseSheetName);
-        }
-
-        let csvText = "";
-        let successfullyFetchedName = "";
-
-        // 輪流向 Google 發送嚴格的 CSV 匯出請求
-        for (let name of namesToTry) {
-            // 更換為更嚴格的 export 路徑，且加上時間戳記 &t= 防止瀏覽器快取舊資料
-            const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&sheet=${encodeURIComponent(name)}&t=${Date.now()}`;
-            try {
-                const response = await fetch(url);
-                if (!response.ok) continue; // 如果分頁不存在，Google 會回傳 400/404，此時直接嘗試下一個格式
-                
-                const text = await response.text();
-                if (text.toLowerCase().includes("<html") || text.trim() === "") continue;
-                
-                csvText = text;
-                successfullyFetchedName = name;
-                break; // 成功抓到真正的分頁資料，跳出迴圈
-            } catch (e) {
-                // 發生網路錯誤則繼續嘗試
+            const csvText = await response.text();
+            
+            // gviz API 如果找不到分頁，會回傳 HTML 錯誤網頁
+            if (csvText.toLowerCase().includes("<html") || csvText.includes("CANNOT_FIND_SHEET")) {
+                throw new Error(`找不到分頁 [${sheetName}]。\n請確認雲端試算表中是否有這個月份的分頁，且權限已公開。`);
             }
-        }
 
-        if (!csvText) {
+            processCSV(csvText);
+        } catch (error) {
+            alert(error.message);
+        } finally {
             document.getElementById('loading').style.display = 'none';
-            alert(`找不到對應的月份分頁。\n網頁嘗試了以下分頁名稱：\n[${namesToTry.join('], [')}]\n\n請檢查雲端試算表內的分頁命名是否正確，並確認共用權限為「知道連結的使用者皆可查看」。`);
-            return;
         }
-
-        processCSV(csvText);
-        document.getElementById('loading').style.display = 'none';
     }
 
     function processCSV(csvText) {
