@@ -28,7 +28,7 @@
         /* 橫幅 Banner 樣式 */
         .banner-container {
             width: 100%;
-            height: 400px;
+            height: 250px;
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
@@ -38,7 +38,7 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            object-position: center 70% 60%; /* 可自行調整左右或上下對齊，如 20% 35% */
+            object-position: center 35%; /* 左右位置可在此微調 */
         }
         
         h1 {
@@ -64,7 +64,7 @@
             justify-content: center;
             align-items: center;
             gap: 15px;
-            flex-wrap: wrap; /* 允許元素換行 */
+            flex-wrap: wrap;
         }
         .controls label {
             font-weight: bold;
@@ -98,13 +98,13 @@
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             margin-bottom: 20px;
-            overflow-x: auto; /* 表格太寬時允許左右滑動 */
+            overflow-x: auto;
         }
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
-            white-space: nowrap; /* 強制文字不換行，保持表格整齊 */
+            white-space: nowrap;
         }
         th, td {
             border: 1px solid var(--border-color);
@@ -129,31 +129,31 @@
             display: none;
         }
 
-        /* ====== 手機自適應版面 (RWD) ====== */
+        /* 手機自適應版面 (RWD) */
         @media (max-width: 768px) {
             body {
-                padding: 10px; /* 縮小手機版邊距 */
+                padding: 10px;
             }
             .banner-container {
-                height: 140px; /* 手機版橫幅變矮，避免佔據太多空間 */
+                height: 140px;
             }
             h1 {
-                font-size: 1.5rem; /* 縮小標題 */
+                font-size: 1.5rem;
                 margin: 10px 0 15px 0;
             }
             h2 {
                 font-size: 1.25rem;
             }
             .controls {
-                flex-direction: column; /* 改為上下排列 */
-                align-items: stretch; /* 讓內容填滿寬度 */
+                flex-direction: column;
+                align-items: stretch;
                 padding: 15px;
             }
             .controls label {
                 text-align: center;
             }
             .controls select, .controls button {
-                width: 100%; /* 下拉選單與按鈕滿版，方便觸控 */
+                width: 100%;
                 font-size: 1.1rem;
                 padding: 12px;
             }
@@ -161,7 +161,7 @@
                 padding: 15px;
             }
             th, td {
-                padding: 10px 8px; /* 稍微縮小表格內距 */
+                padding: 10px 8px;
                 font-size: 0.95rem;
             }
         }
@@ -171,7 +171,7 @@
 
 <div class="container">
     <div class="banner-container">
-        <img src="littlemaymay.png" alt="MayMay Banner" class="banner-img">
+        <img src="littlemaymay.jpg" alt="MayMay Banner" class="banner-img">
     </div>
     
     <h1>🐈 MayMayHome公費結算系統</h1>
@@ -260,44 +260,50 @@
         document.getElementById('loading').style.display = 'block';
         document.getElementById('output').style.display = 'none';
 
-        // 自動產生多種可能的分頁名稱排列（例如：同時嘗試 "2025.9" 與 "2025.09"）
-        let namesToTry = [baseSheetName];
+        // 徹底拆解年份與月份，自動生成所有可能的命名排列組合，全面容錯
+        let namesToTry = [];
         const parts = baseSheetName.split('.');
         if (parts.length === 2) {
             const y = parts[0];
-            const m = parts[1];
-            if (m.length === 1) {
-                namesToTry.push(`${y}.0${m}`); // 補零備用
-            } else if (m.length === 2 && m.startsWith('0')) {
-                namesToTry.push(`${y}.${parseInt(m, 10)}`); // 去零備用
-            }
+            const m = parseInt(parts[1], 10);
+            const mZero = m < 10 ? `0${m}` : `${m}`;
+            
+            // 根據歷史分頁習慣，依序嘗試以下 6 種最可能的命名格式
+            namesToTry.push(`${y}.${mZero}`);  // 例：2026.06
+            namesToTry.push(`${y}.${m}`);      // 例：2026.6
+            namesToTry.push(`${m}月`);         // 例：6月
+            namesToTry.push(`${mZero}月`);      // 例：06月
+            namesToTry.push(`${y}/${mZero}`);  // 例：2026/06
+            namesToTry.push(`${y}/${m}`);      // 例：2026/6
+        } else {
+            namesToTry.push(baseSheetName);
         }
 
         let csvText = "";
-        let finalSuccessName = "";
+        let successfullyFetchedName = "";
 
-        // 輪流嘗試，只要有一個成功抓到資料就停下來
+        // 輪流向 Google 發送嚴格的 CSV 匯出請求
         for (let name of namesToTry) {
-            const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}`;
+            // 更換為更嚴格的 export 路徑，且加上時間戳記 &t= 防止瀏覽器快取舊資料
+            const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&sheet=${encodeURIComponent(name)}&t=${Date.now()}`;
             try {
                 const response = await fetch(url);
-                if (!response.ok) continue;
-                const text = await response.text();
+                if (!response.ok) continue; // 如果分頁不存在，Google 會回傳 400/404，此時直接嘗試下一個格式
                 
-                // 如果回傳包含 HTML 結構，代表 Google 導向了錯誤或登入頁面，視同失敗
-                if (text.toLowerCase().includes("<html")) continue;
+                const text = await response.text();
+                if (text.toLowerCase().includes("<html") || text.trim() === "") continue;
                 
                 csvText = text;
-                finalSuccessName = name;
-                break; 
+                successfullyFetchedName = name;
+                break; // 成功抓到真正的分頁資料，跳出迴圈
             } catch (e) {
-                // 發生連線錯誤則繼續嘗試下一個格式
+                // 發生網路錯誤則繼續嘗試
             }
         }
 
         if (!csvText) {
             document.getElementById('loading').style.display = 'none';
-            alert(`找不到月份資料。\n請確認試算表中是否存在分頁 [${namesToTry.join('] 或 [')}]，且共用權限已開放為「知道連結的使用者皆可查看」。`);
+            alert(`找不到對應的月份分頁。\n網頁嘗試了以下分頁名稱：\n[${namesToTry.join('], [')}]\n\n請檢查雲端試算表內的分頁命名是否正確，並確認共用權限為「知道連結的使用者皆可查看」。`);
             return;
         }
 
