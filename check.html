@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>合租公費與驗算系統</title>
+    <title>🐈 MayMayHome公費與驗算系統</title>
     <style>
         :root {
             --primary-color: #007bff;
@@ -24,11 +24,36 @@
             max-width: 1000px;
             margin: 0 auto;
         }
-        h1, h2 {
+        
+        /* 橫幅 Banner 樣式 */
+        .banner-container {
+            width: 100%;
+            height: 250px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+        }
+        .banner-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center 35%;
+        }
+        
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin: 15px 0 25px 0;
+            font-size: 2rem;
+            letter-spacing: 1px;
+        }
+        h2 {
             text-align: center;
             color: var(--primary-color);
             margin-bottom: 20px;
         }
+
         .controls {
             background: var(--card-bg);
             padding: 20px;
@@ -39,6 +64,7 @@
             justify-content: center;
             align-items: center;
             gap: 15px;
+            flex-wrap: wrap;
         }
         .controls label {
             font-weight: bold;
@@ -105,12 +131,53 @@
             margin: 20px 0;
             display: none;
         }
+
+        /* 手機自適應版面 (RWD) */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .banner-container {
+                height: 140px;
+            }
+            h1 {
+                font-size: 1.5rem;
+                margin: 10px 0 15px 0;
+            }
+            h2 {
+                font-size: 1.25rem;
+            }
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+                padding: 15px;
+            }
+            .controls label {
+                text-align: center;
+            }
+            .controls select, .controls button {
+                width: 100%;
+                font-size: 1.1rem;
+                padding: 12px;
+            }
+            .card {
+                padding: 15px;
+            }
+            th, td {
+                padding: 10px 8px;
+                font-size: 0.95rem;
+            }
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>公費結算與驗算系統</h1>
+    <div class="banner-container">
+        <img src="littlemaymay.jpg" alt="MayMay Banner" class="banner-img">
+    </div>
+    
+    <h1>🐈 MayMayHome公費與驗算系統</h1>
     
     <div class="controls">
         <label for="monthSelect">選擇查看月份：</label>
@@ -134,10 +201,10 @@
 </div>
 
 <script>
-    // 寫死的 Google 試算表 ID
+    // 固定的 Google 試算表 ID
     const SPREADSHEET_ID = '13EYAH1ynGnraSEvDLZ0vo8YWsbvtntf0OHU5iCuTLWE';
 
-    // 初始化月份下拉選單 (產生最近24個月的選項)
+    // 初始化月份下拉選單 (自動產生最近24個月、格式自動補零對齊 2026.06)
     function initMonths() {
         const select = document.getElementById('monthSelect');
         const today = new Date();
@@ -146,9 +213,13 @@
 
         for (let i = 0; i < 24; i++) {
             const option = document.createElement('option');
-            const val = `${year}.${month}`;
+            
+            // 將月份補零，符合你新統一的格式 (例如：2026.06)
+            const mZero = month < 10 ? `0${month}` : `${month}`;
+            const val = `${year}.${mZero}`; 
+            
             option.value = val;
-            option.textContent = `${year} 年 ${month} 月 (${val})`;
+            option.textContent = `${year} 年 ${month} 月`;
             select.appendChild(option);
 
             month--;
@@ -158,11 +229,11 @@
             }
         }
 
-        // 初始化完成後，自動加載最新月份的資料
+        // 預設加載第一個最新月份
         fetchData();
     }
 
-    // CSV 解析器，正確處理包含引號與逗號的欄位
+    // CSV 解析器
     function parseCSV(text) {
         const lines = text.split(/\r?\n/);
         return lines.map(line => {
@@ -196,17 +267,17 @@
         document.getElementById('loading').style.display = 'block';
         document.getElementById('output').style.display = 'none';
 
-        // 使用 Google viz API 直接抓取對應分頁的 CSV
-        const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+        // 使用正確的 gviz API，並加上時間戳記避免瀏覽器快取舊分頁
+        const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&t=${Date.now()}`;
 
         try {
             const response = await fetch(url);
-            if (!response.ok) throw new Error("網路請求失敗，請確認雲端試算表共用權限是否已開啟。");
+            if (!response.ok) throw new Error("網路連線錯誤");
+            
             const csvText = await response.text();
             
-            // 如果返回的是 HTML 代表帳號被阻擋或找不到分頁
-            if (csvText.toLowerCase().includes("<html")) {
-                throw new Error(`找不到 [${sheetName}] 的資料。請確認試算表中是否存在此分頁，且共用權限已設定為「知道連結的使用者皆可查看」。`);
+            if (csvText.toLowerCase().includes("<html") || csvText.includes("CANNOT_FIND_SHEET")) {
+                throw new Error(`找不到分頁 [${sheetName}]。\n請確認雲端試算表中是否有這個月份的分頁，且權限已公開為「知道連結的使用者皆可查看」。`);
             }
 
             processCSV(csvText);
@@ -229,41 +300,37 @@
         let sumDays = 0;
         let sumElecDays = 0;
 
-        // 從第 2 行 (索引 1) 開始解析資料 (跳過第 0 行標題)
         for (let i = 1; i < rows.length; i++) {
             let row = rows[i];
             if (!row || row.join('') === '') continue;
 
-            // --- B:D 欄支出明細解析 (對應陣列索引 1, 2, 3) ---
+            // --- B:D 欄支出明細解析 ---
             let item = row[1] || "";
             let priceStr = row[2] || "";
             let paidBy = row[3] || "";
             let price = parseFloat(priceStr.replace(/,/g, ''));
 
-            // 有項目名稱且總價不為空、大於 0 才列出
             if (item && !isNaN(price) && price > 0) {
                 expenses.push({ item, price, paidBy });
                 
-                // 區分電費與一般公費
                 if (item.startsWith("電費")) {
                     totalElec += price;
                 } else {
                     totalShared += price;
                 }
                 
-                // 統計每個人各自幫忙代墊的總金額
                 if (paidBy) {
                     advMap[paidBy] = (advMap[paidBy] || 0) + price;
                 }
             }
 
-            // --- F:K 欄成員計算區域解析 (對應陣列索引 5, 6, 7, 8, 9, 10) ---
+            // --- F:K 欄成員計算區域解析 (F欄索引5, G欄索引6, H欄索引7, J欄索引9, K欄索引10) ---
             let memberName = row[5] || "";
             if (memberName) {
                 let rent = parseFloat(row[6]) || 0;
                 let days = parseFloat(row[7]) || 0;
                 let elecDays = parseFloat(row[9]) || 0;
-                let csvK = parseFloat(row[10].replace(/,/g, '')) || 0; // 試算表算出的結果
+                let csvK = parseFloat(row[10].replace(/,/g, '')) || 0; // 讀取試算表中的原金額
 
                 sumDays += days;
                 sumElecDays += elecDays;
@@ -272,20 +339,17 @@
             }
         }
 
-        // --- HTML 語法獨立計算邏輯 (用於反向驗算) ---
+        // --- 網頁獨立計算邏輯 (用於與原K欄進行比對驗算) ---
         let verificationResults = members.map(m => {
-            // 1. 一般公費平分佔比
             let sharePct = sumDays > 0 ? (m.days / sumDays) : 0;
-            // 2. 電費修正佔比 (只影響電費項目)
             let elecPct = sumElecDays > 0 ? (m.elecDays / sumElecDays) : 0;
 
             let shareCost = totalShared * sharePct;
             let elecCost = totalElec * elecPct;
             let advanced = advMap[m.memberName] || 0;
 
-            // 3. 核心合計公式：個人房租 + 比例公費 + 比例電費 - 個人代墊
             let calculatedK = Math.round(m.rent + shareCost + elecCost - advanced);
-            let diff = calculatedK - m.csvK;
+            let diff = calculatedK - m.csvK; // 計算誤差
 
             return {
                 ...m,
@@ -301,7 +365,6 @@
     }
 
     function renderUI(expenses, verificationResults) {
-        // 渲染支出明細表面版
         let expHtml = `
             <table>
                 <tr>
@@ -326,7 +389,7 @@
         expHtml += `</table>`;
         document.getElementById('expensesTable').innerHTML = expHtml;
 
-        // 渲染驗算比對面板
+        // 重新加上「試算表原金額」與「驗算狀態」欄位
         let memHtml = `
             <table>
                 <tr>
@@ -344,7 +407,6 @@
             memHtml += `<tr><td colspan="8">未偵測到成員清單</td></tr>`;
         } else {
             verificationResults.forEach(m => {
-                // 比對網頁計算與試算表是否一致
                 let statusHtml = m.diff === 0 
                     ? `<span class="diff-ok">✓ 數字吻合</span>` 
                     : `<span class="diff-warn">✗ 誤差 ${Math.abs(m.diff)} 元</span>`;
@@ -366,11 +428,9 @@
         memHtml += `</table>`;
         document.getElementById('membersTable').innerHTML = memHtml;
 
-        // 顯示結果區塊
         document.getElementById('output').style.display = 'block';
     }
 
-    // 網頁載入完畢後自動執行
     window.onload = initMonths;
 </script>
 
