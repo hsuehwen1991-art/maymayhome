@@ -24,11 +24,9 @@
             max-width: 1000px;
             margin: 0 auto;
         }
-        
-        /* 橫幅 Banner 樣式 */
         .banner-container {
             width: 100%;
-            height: 450px;
+            height: 250px;
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
@@ -38,9 +36,8 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            object-position: center 30% 35%;
+            object-position: center 35%;
         }
-        
         h1 {
             text-align: center;
             color: var(--primary-color);
@@ -53,7 +50,8 @@
             color: var(--primary-color);
             margin-bottom: 20px;
         }
-
+        
+        /* 調整控制列的排版：左右分開 */
         .controls {
             background: var(--card-bg);
             padding: 20px;
@@ -61,11 +59,29 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             margin-bottom: 20px;
             display: flex;
-            justify-content: center;
+            justify-content: space-between; /* 讓內容往左右兩側對齊 */
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .controls-left {
+            display: flex;
             align-items: center;
             gap: 15px;
             flex-wrap: wrap;
         }
+        
+        /* 結算日期標籤樣式 */
+        .settlement-date {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #d9534f;
+            background-color: #fce8e6;
+            padding: 8px 15px;
+            border-radius: 6px;
+            border: 1px solid #f5c6cb;
+        }
+
         .controls label {
             font-weight: bold;
             font-size: 1.1rem;
@@ -132,41 +148,19 @@
             display: none;
         }
 
-        /* 手機自適應版面 (RWD) */
+        /* 手機自適應版面 */
         @media (max-width: 768px) {
-            body {
-                padding: 10px;
-            }
-            .banner-container {
-                height: 140px;
-            }
-            h1 {
-                font-size: 1.5rem;
-                margin: 10px 0 15px 0;
-            }
-            h2 {
-                font-size: 1.25rem;
-            }
-            .controls {
-                flex-direction: column;
-                align-items: stretch;
-                padding: 15px;
-            }
-            .controls label {
-                text-align: center;
-            }
-            .controls select, .controls button {
-                width: 100%;
-                font-size: 1.1rem;
-                padding: 12px;
-            }
-            .card {
-                padding: 15px;
-            }
-            th, td {
-                padding: 10px 8px;
-                font-size: 0.95rem;
-            }
+            body { padding: 10px; }
+            .banner-container { height: 140px; }
+            h1 { font-size: 1.5rem; margin: 10px 0 15px 0; }
+            h2 { font-size: 1.25rem; }
+            .controls { flex-direction: column; align-items: stretch; padding: 15px; }
+            .controls-left { flex-direction: column; align-items: stretch; }
+            .controls label { text-align: center; }
+            .controls select, .controls button { width: 100%; font-size: 1.1rem; padding: 12px; }
+            .settlement-date { text-align: center; margin-top: 5px; }
+            .card { padding: 15px; }
+            th, td { padding: 10px 8px; font-size: 0.95rem; }
         }
     </style>
 </head>
@@ -174,15 +168,19 @@
 
 <div class="container">
     <div class="banner-container">
-        <img src="littlemaymay.png" alt="MayMay Banner" class="banner-img">
+        <img src="littlemaymay.jpg" alt="MayMay Banner" class="banner-img">
     </div>
     
     <h1>🐈 MayMayHome公費與驗算系統</h1>
     
     <div class="controls">
-        <label for="monthSelect">選擇查看月份：</label>
-        <select id="monthSelect" onchange="fetchData()"></select>
-        <button onclick="fetchData()">重新整理</button>
+        <div class="controls-left">
+            <label for="monthSelect">選擇查看月份：</label>
+            <select id="monthSelect" onchange="fetchData()"></select>
+            <button onclick="fetchData()">重新整理</button>
+        </div>
+        <!-- 這是新增的結算日期區塊 -->
+        <div id="settlementDate" class="settlement-date">結算日期：讀取中...</div>
     </div>
 
     <div id="loading">讀取與計算中，請稍候...</div>
@@ -201,39 +199,8 @@
 </div>
 
 <script>
-    // 固定的 Google 試算表 ID
     const SPREADSHEET_ID = '13EYAH1ynGnraSEvDLZ0vo8YWsbvtntf0OHU5iCuTLWE';
 
-    // 初始化月份下拉選單 (自動產生最近24個月、格式自動補零對齊 2026.06)
-    function initMonths() {
-        const select = document.getElementById('monthSelect');
-        const today = new Date();
-        let year = today.getFullYear();
-        let month = today.getMonth() + 1;
-
-        for (let i = 0; i < 24; i++) {
-            const option = document.createElement('option');
-            
-            // 將月份補零，符合你新統一的格式 (例如：2026.06)
-            const mZero = month < 10 ? `0${month}` : `${month}`;
-            const val = `${year}.${mZero}`; 
-            
-            option.value = val;
-            option.textContent = `${year} 年 ${month} 月`;
-            select.appendChild(option);
-
-            month--;
-            if (month === 0) {
-                month = 12;
-                year--;
-            }
-        }
-
-        // 預設加載第一個最新月份
-        fetchData();
-    }
-
-    // CSV 解析器
     function parseCSV(text) {
         const lines = text.split(/\r?\n/);
         return lines.map(line => {
@@ -244,30 +211,113 @@
                 const char = line[i];
                 if (char === '"') {
                     if (inQuotes && line[i + 1] === '"') {
-                        curr += '"';
-                        i++;
-                    } else {
-                        inQuotes = !inQuotes;
-                    }
+                        curr += '"'; i++;
+                    } else { inQuotes = !inQuotes; }
                 } else if (char === ',' && !inQuotes) {
-                    row.push(curr.trim());
-                    curr = '';
-                } else {
-                    curr += char;
-                }
+                    row.push(curr.trim()); curr = '';
+                } else { curr += char; }
             }
             row.push(curr.trim());
             return row;
         });
     }
 
+    async function initMonths() {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('loading').textContent = '正在同步分頁清單...';
+
+        const select = document.getElementById('monthSelect');
+        select.innerHTML = ''; 
+        
+        let useFallback = false;
+        const indexUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('目錄')}&t=${Date.now()}`;
+        
+        try {
+            const response = await fetch(indexUrl);
+            if (!response.ok) throw new Error("網路請求失敗");
+            const csvText = await response.text();
+            
+            const rows = parseCSV(csvText);
+            if (rows.length === 0 || rows[0][0].trim() !== "月份") {
+                useFallback = true;
+            } else {
+                let added = 0;
+                for (let i = 1; i < rows.length; i++) {
+                    let val = rows[i][0] ? rows[i][0].trim() : "";
+                    if (val) {
+                        const option = document.createElement('option');
+                        option.value = val;
+                        let textDisplay = val;
+                        if(val.includes('.')) {
+                            let parts = val.split('.');
+                            textDisplay = `${parts[0]} 年 ${parseInt(parts[1], 10)} 月`;
+                        }
+                        option.textContent = textDisplay;
+                        select.appendChild(option);
+                        added++;
+                    }
+                }
+                if (added === 0) useFallback = true;
+            }
+        } catch (e) {
+            useFallback = true;
+        }
+
+        if (useFallback) {
+            const today = new Date();
+            today.setMonth(today.getMonth() - 1); 
+            let year = today.getFullYear();
+            let month = today.getMonth() + 1;
+
+            for (let i = 0; i < 24; i++) {
+                const option = document.createElement('option');
+                const mZero = month < 10 ? `0${month}` : `${month}`;
+                const val = `${year}.${mZero}`; 
+                option.value = val;
+                option.textContent = `${year} 年 ${month} 月`;
+                select.appendChild(option);
+
+                month--;
+                if (month === 0) { month = 12; year--; }
+            }
+        }
+
+        document.getElementById('loading').textContent = '讀取與計算中，請稍候...';
+        fetchData(); 
+    }
+
+    // --- 自動計算當月結算日期的函數 ---
+    function updateSettlementDate(sheetName) {
+        if (!sheetName || !sheetName.includes('.')) {
+            document.getElementById('settlementDate').textContent = '結算日期：-';
+            return;
+        }
+        
+        // 將 "2026.06" 拆分成 年份 與 月份
+        const parts = sheetName.split('.');
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10);
+        
+        // JavaScript 的 Date(year, month, 0) 可以完美取得該月最後一天的日期數字 (例如 30 還是 31)
+        const lastDay = new Date(year, month, 0).getDate();
+        
+        // 補零讓排版整齊
+        const mZero = month < 10 ? `0${month}` : `${month}`;
+        const dZero = lastDay < 10 ? `0${lastDay}` : `${lastDay}`;
+        
+        document.getElementById('settlementDate').textContent = `結算日期：${year} / ${mZero} / ${dZero}`;
+    }
+
     async function fetchData() {
+        if(!document.getElementById('monthSelect').value) return; 
         const sheetName = document.getElementById('monthSelect').value;
+        
+        // 呼叫計算日期的功能
+        updateSettlementDate(sheetName);
         
         document.getElementById('loading').style.display = 'block';
         document.getElementById('output').style.display = 'none';
 
-        // 使用正確的 gviz API，並加上時間戳記避免瀏覽器快取舊分頁
         const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&t=${Date.now()}`;
 
         try {
@@ -277,7 +327,7 @@
             const csvText = await response.text();
             
             if (csvText.toLowerCase().includes("<html") || csvText.includes("CANNOT_FIND_SHEET")) {
-                throw new Error(`找不到分頁 [${sheetName}]。\n請確認雲端試算表中是否有這個月份的分頁，且權限已公開為「知道連結的使用者皆可查看」。`);
+                throw new Error(`找不到分頁 [${sheetName}]。\n請確認雲端試算表中是否有這個月份的分頁，且權限已公開。`);
             }
 
             processCSV(csvText);
@@ -304,7 +354,6 @@
             let row = rows[i];
             if (!row || row.join('') === '') continue;
 
-            // --- B:D 欄支出明細解析 ---
             let item = row[1] || "";
             let priceStr = row[2] || "";
             let paidBy = row[3] || "";
@@ -312,34 +361,24 @@
 
             if (item && !isNaN(price) && price > 0) {
                 expenses.push({ item, price, paidBy });
-                
-                if (item.startsWith("電費")) {
-                    totalElec += price;
-                } else {
-                    totalShared += price;
-                }
-                
-                if (paidBy) {
-                    advMap[paidBy] = (advMap[paidBy] || 0) + price;
-                }
+                if (item.startsWith("電費")) totalElec += price;
+                else totalShared += price;
+                if (paidBy) advMap[paidBy] = (advMap[paidBy] || 0) + price;
             }
 
-            // --- F:K 欄成員計算區域解析 (F欄索引5, G欄索引6, H欄索引7, J欄索引9, K欄索引10) ---
             let memberName = row[5] || "";
             if (memberName) {
                 let rent = parseFloat(row[6]) || 0;
                 let days = parseFloat(row[7]) || 0;
                 let elecDays = parseFloat(row[9]) || 0;
-                let csvK = parseFloat(row[10].replace(/,/g, '')) || 0; // 讀取試算表中的原金額
+                let csvK = parseFloat(row[10] ? row[10].replace(/,/g, '') : 0) || 0;
 
                 sumDays += days;
                 sumElecDays += elecDays;
-
                 members.push({ memberName, rent, days, elecDays, csvK });
             }
         }
 
-        // --- 網頁獨立計算邏輯 (用於與原K欄進行比對驗算) ---
         let verificationResults = members.map(m => {
             let sharePct = sumDays > 0 ? (m.days / sumDays) : 0;
             let elecPct = sumElecDays > 0 ? (m.elecDays / sumElecDays) : 0;
@@ -349,7 +388,7 @@
             let advanced = advMap[m.memberName] || 0;
 
             let calculatedK = Math.round(m.rent + shareCost + elecCost - advanced);
-            let diff = calculatedK - m.csvK; // 計算誤差
+            let diff = calculatedK - m.csvK;
 
             return {
                 ...m,
@@ -389,7 +428,6 @@
         expHtml += `</table>`;
         document.getElementById('expensesTable').innerHTML = expHtml;
 
-        // 重新加上「試算表原金額」與「驗算狀態」欄位
         let memHtml = `
             <table>
                 <tr>
@@ -427,7 +465,6 @@
         }
         memHtml += `</table>`;
         document.getElementById('membersTable').innerHTML = memHtml;
-
         document.getElementById('output').style.display = 'block';
     }
 
