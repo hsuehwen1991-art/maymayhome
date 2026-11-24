@@ -572,6 +572,14 @@ table.data-table th {
 }
 
 /* ==================== 方案 B：全螢幕登入遮罩與彈窗 ==================== */
+/* 開啟彈窗或登入畫面時，鎖定底層頁面捲動 */
+html:has(.modal-backdrop.open),
+body:has(.modal-backdrop.open),
+html:has(.login-screen.open),
+body:has(.login-screen.open) {
+  overflow: hidden;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -581,8 +589,8 @@ table.data-table th {
   display: none;
   align-items: center;
   justify-content: center;
-  padding: 18px;
-  overflow-y: auto;
+  padding: 16px;
+  overscroll-behavior: contain;
 }
 
 .modal-backdrop.open {
@@ -597,8 +605,18 @@ table.data-table th {
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   max-height: 90vh;
+  max-height: 90dvh;
   display: flex;
   flex-direction: column;
+}
+
+/* 關鍵修正：讓包住 body 與 footer 的 form 繼承剩餘高度並允許內層捲動 */
+.modal-box > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .modal-header {
@@ -607,6 +625,7 @@ table.data-table th {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .modal-header h3 {
@@ -617,6 +636,10 @@ table.data-table th {
 .modal-body {
   padding: 18px 20px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  flex: 1;
+  min-height: 0;
 }
 
 .modal-footer {
@@ -626,6 +649,7 @@ table.data-table th {
   justify-content: flex-end;
   gap: 10px;
   background: #f8fafc;
+  flex-shrink: 0;
 }
 
 /* 登入專屬畫面 */
