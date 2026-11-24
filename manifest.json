@@ -1,0 +1,19 @@
+{
+  "name": "MayMayHome 家庭管理平台",
+  "short_name": "MayMayHome",
+  "description": "家庭公費結算、瓦斯追蹤、HomeKit 設備與公告中控台",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f1f5f9",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/assets/maymay-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
