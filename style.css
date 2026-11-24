@@ -1,4 +1,8 @@
-/* MayMayHome 共用樣式表（淺色科技風 + 手機底部導覽列 + 桌面表格/手機卡片 RWD） */
+/* MayMayHome 共用樣式表（淺色科技風 + iOS Liquid Glass 底部導覽列 + 桌面表格/手機卡片 RWD） */
+
+@view-transition {
+  navigation: auto;
+}
 
 :root {
   --primary: #2563eb;
@@ -49,10 +53,10 @@ a {
   top: 0;
   z-index: 100;
   height: var(--nav-height);
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.85);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -126,7 +130,7 @@ a {
   color: var(--text);
 }
 
-/* ==================== 手機底部 Tab 列 ==================== */
+/* ==================== 手機底部 iOS Liquid Glass 懸浮導覽列 ==================== */
 .bottom-nav {
   display: none;
   position: fixed;
@@ -134,37 +138,147 @@ a {
   right: 0;
   bottom: 0;
   z-index: 100;
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid var(--border);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding: 0 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+}
+
+.bottom-nav-glass {
+  pointer-events: auto;
+  max-width: 420px;
+  margin: 0 auto;
+  border-radius: 999px;
+  position: relative;
+  view-transition-name: mmh-bottom-nav;
+  /* Liquid Glass 透明折射基底 */
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.68) 0%,
+    rgba(241, 245, 249, 0.46) 100%
+  );
+  backdrop-filter: blur(24px) saturate(195%);
+  -webkit-backdrop-filter: blur(24px) saturate(195%);
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  box-shadow:
+    0 12px 32px rgba(15, 23, 42, 0.14),
+    0 2px 8px rgba(15, 23, 42, 0.06),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.96),
+    inset 0 -1px 2px rgba(148, 163, 184, 0.22);
+}
+
+/* 頂部微弱弧面反光條 */
+.bottom-nav-glass::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 1px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.95) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  pointer-events: none;
+  z-index: 3;
 }
 
 .bottom-nav-inner {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   height: var(--bottom-nav-height);
+  padding: 6px;
+}
+
+/* 滑動高光玻璃膠囊指示器 */
+.bottom-nav-pill {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 6px;
+  width: calc((100% - 12px) / 4);
+  z-index: 0;
+  pointer-events: none;
+  transform: translate3d(calc(var(--nav-index, 0) * 100%), 0, 0);
+  transition: transform 0.36s cubic-bezier(0.32, 1.26, 0.45, 1);
+  will-change: transform;
+}
+
+.bottom-nav-pill.no-transition {
+  transition: none !important;
+}
+
+.bottom-nav-pill-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(219, 234, 254, 0.62) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 4px 14px rgba(37, 99, 235, 0.16),
+    inset 0 1.5px 2px rgba(255, 255, 255, 1),
+    inset 0 -1px 2px rgba(37, 99, 235, 0.12);
+}
+
+@keyframes liquidPillGlide {
+  0%   { transform: scaleX(1) scaleY(1); }
+  38%  { transform: scaleX(1.16) scaleY(0.88); }
+  74%  { transform: scaleX(0.96) scaleY(1.04); }
+  100% { transform: scaleX(1) scaleY(1); }
+}
+
+.bottom-nav-pill.is-sliding .bottom-nav-pill-inner {
+  animation: liquidPillGlide 0.36s cubic-bezier(0.32, 1.18, 0.45, 1);
 }
 
 .bottom-nav a {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--text-muted);
+  color: #475569;
+  border-radius: 999px;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: color 0.22s ease, transform 0.16s ease;
+}
+
+.bottom-nav a:active {
+  transform: scale(0.92);
 }
 
 .bottom-nav a .nav-ico {
-  font-size: 1.25rem;
+  font-size: 1.24rem;
   line-height: 1;
+  transition: transform 0.26s cubic-bezier(0.32, 1.35, 0.45, 1);
 }
 
 .bottom-nav a.active {
   color: var(--primary);
+  font-weight: 700;
+}
+
+.bottom-nav a.active .nav-ico {
+  transform: translateY(-1px) scale(1.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bottom-nav-pill,
+  .bottom-nav a,
+  .bottom-nav a .nav-ico {
+    transition: none !important;
+    animation: none !important;
+  }
 }
 
 /* ==================== 主容器與卡片 ==================== */
@@ -792,7 +906,7 @@ body:has(.login-screen.open) {
   .mobile-cards { display: block; }
   .top-nav { padding: 0 14px; }
   .page-container {
-    padding: 14px 12px calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 24px);
+    padding: 14px 12px calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 38px);
   }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
   .hero-welcome { min-height: 138px; }
@@ -806,7 +920,7 @@ body:has(.login-screen.open) {
     left: 12px;
     right: 12px;
     top: auto;
-    bottom: calc(var(--bottom-nav-height) + 14px);
+    bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 24px);
     align-items: center;
   }
 }
