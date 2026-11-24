@@ -28,15 +28,6 @@
     </div>
   </section>
 
-  <!-- 推播權限引導卡（未開啟通知時自動顯示） -->
-  <section id="pushPromptBanner" class="push-banner hidden">
-    <div class="push-banner-text">
-      <strong id="pushPromptTitle">🔔 開啟家庭即時通知</strong>
-      <span id="pushPromptDesc">瓦斯換桶警示、重要公告與月底公費結算將第一時間推播至手機。</span>
-    </div>
-    <button id="enablePushBtn" class="btn btn-primary btn-sm" onclick="handleEnablePush()">立即開啟通知</button>
-  </section>
-
   <!-- 雙核心快覽卡片：瓦斯桶狀態 + 本月公費快覽 -->
   <div class="grid-2">
     <!-- 瓦斯桶即時狀態卡 -->
@@ -186,35 +177,6 @@
     document.getElementById(id).classList.remove('open');
   }
 
-  function updatePushBanner() {
-    const banner = document.getElementById('pushPromptBanner');
-    const title = document.getElementById('pushPromptTitle');
-    const desc = document.getElementById('pushPromptDesc');
-    const btn = document.getElementById('enablePushBtn');
-    const state = App.getPushState();
-
-    if (!state.configured || state.granted) {
-      banner.classList.add('hidden');
-      return;
-    }
-
-    banner.classList.remove('hidden');
-    if (state.iosNeedInstall) {
-      title.textContent = '📲 iPhone 需「加入主畫面」才能接收推播';
-      desc.textContent = '請點擊 Safari 底部「分享」圖示 →「加入主畫面」，再從桌面打開 MayMayHome 即可啟用通知。';
-      btn.textContent = '查看說明';
-    } else {
-      title.textContent = '🔔 開啟家庭即時通知';
-      desc.textContent = '瓦斯換桶警示、置頂公告與月底公費結算將即時推播至手機。';
-      btn.textContent = '立即開啟通知';
-    }
-  }
-
-  async function handleEnablePush() {
-    await App.requestPushPermission();
-    updatePushBanner();
-  }
-
   function renderWelcome(user) {
     document.getElementById('welcomeGreeting').textContent = `嗨，${user.displayName} 👋`;
     const isReadOnly = user.status === '待結電費';
@@ -291,25 +253,26 @@
       let myLabel = '本期無帳務';
       let myBadge = '';
       if (my) {
-        const isRefund = my.amount < 0;
-        myLabel = (isRefund ? '應退款 ' : '應繳 ') + App.formatMoney(Math.abs(my.amount)) + ' 元';
-        const statusCls = my.paymentStatus === '已繳清' ? 'badge-success'
+        const isNeg = my.amount < 0;
+        const negPrefix = my.isRentPayer ? '應收 ' : '應退款 ';
+        myLabel = (isNeg ? negPrefix : '應繳 ') + App.formatMoney(Math.abs(my.amount)) + ' 元';
+        const statusCls = (my.paymentStatus === '已繳清' || my.paymentStatus === '已全數收齊') ? 'badge-success'
           : (my.paymentStatus === '待繳款' ? 'badge-danger'
-          : (my.paymentStatus === '待退款' ? 'badge-warning' : 'badge-muted'));
+          : ((my.paymentStatus === '待退款' || my.paymentStatus === '待收款') ? 'badge-warning' : 'badge-muted'));
         myBadge = `<span class="badge ${statusCls}">${App.escapeHtml(my.paymentStatus)}</span>`;
       }
 
       document.getElementById('financeOverviewBox').innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
           <div>
-            <div style="font-size:1.05rem; font-weight:800;">${App.escapeHtml(f.currentMonth)} 帳期</div>
+            <div style="font-size:1.05rem; font-weight:800;">${App.escapeHtml(App.formatMonth(f.currentMonth))} 帳期</div>
             <div class="text-muted" style="font-size:0.82rem;">結算日：${App.escapeHtml(f.settlementDate)}</div>
           </div>
           <span class="badge badge-primary">對帳進度 ${f.paymentProgress.paidCount} / ${f.paymentProgress.totalCount}</span>
         </div>
         <div class="stat-box" style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
           <div>
-            <div class="stat-label">我的本期結算</div>
+            <div class="stat-label">${my && my.isRentPayer ? '我的本期淨應收' : '我的本期結算'}</div>
             <div class="stat-value ${my && my.amount < 0 ? 'text-success' : 'text-primary'}">${myLabel}</div>
           </div>
           ${myBadge}
@@ -504,7 +467,7 @@
       payload.createExpense = {
         enabled: true,
         month,
-        item: '叫瓦斯（補滿2桶）',
+        item: '瓦斯費',
         amount,
         paidByUserId: App.getUser().userId
       };
@@ -525,11 +488,8 @@
     }
   });
 
-  window.addEventListener('mmh:pushReady', updatePushBanner);
-
   App.boot('index', (user, isCachedPhase) => {
     renderWelcome(user);
-    updatePushBanner();
     loadDashboard(isCachedPhase);
   });
 </script>
