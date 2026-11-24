@@ -1,480 +1,537 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐈 MayMayHome公費結算系統</title>
-    <style>
-        :root {
-            --primary-color: #007bff;
-            --bg-color: #f4f7f6;
-            --card-bg: #ffffff;
-            --text-color: #333333;
-            --border-color: #dddddd;
-        }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 20px;
-            line-height: 1.6;
-        }
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-        
-        /* 橫幅 Banner 樣式 */
-        .banner-container {
-            width: 100%;
-            height: 450px;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            margin-bottom: 10px;
-        }
-        .banner-img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: center 70% 35%;
-        }
-        
-        h1 {
-            text-align: center;
-            color: var(--primary-color);
-            margin: 15px 0 25px 0;
-            font-size: 2rem;
-            letter-spacing: 1px;
-        }
-        h2 {
-            text-align: center;
-            color: var(--primary-color);
-            margin-bottom: 20px;
-        }
-
-        /* 控制列排版：左右分開 */
-        .controls {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-        .controls-left {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-        
-        /* 結算日期標籤樣式 */
-        .settlement-date {
-            font-weight: bold;
-            font-size: 1.1rem;
-            color: #d9534f;
-            background-color: #fce8e6;
-            padding: 8px 15px;
-            border-radius: 6px;
-            border: 1px solid #f5c6cb;
-        }
-
-        .controls label {
-            font-weight: bold;
-            font-size: 1.1rem;
-        }
-        .controls select {
-            padding: 10px 15px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            font-size: 1rem;
-            min-width: 150px;
-            cursor: pointer;
-        }
-        .controls button {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 1rem;
-            transition: background 0.3s;
-        }
-        .controls button:hover {
-            background-color: #0056b3;
-        }
-        .card {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-            overflow-x: auto;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-            white-space: nowrap;
-        }
-        th, td {
-            border: 1px solid var(--border-color);
-            padding: 12px 10px;
-            text-align: center;
-        }
-        th {
-            background-color: #f1f1f1;
-            font-weight: bold;
-        }
-        .total-amount {
-            color: var(--primary-color);
-            font-weight: bold;
-            font-size: 1.15rem;
-        }
-        #loading {
-            text-align: center;
-            font-weight: bold;
-            color: var(--primary-color);
-            font-size: 1.2rem;
-            margin: 20px 0;
-            display: none;
-        }
-
-        /* 手機自適應版面 (RWD) */
-        @media (max-width: 768px) {
-            body { padding: 10px; }
-            .banner-container { height: 140px; }
-            h1 { font-size: 1.5rem; margin: 10px 0 15px 0; }
-            h2 { font-size: 1.25rem; }
-            .controls { flex-direction: column; align-items: stretch; padding: 15px; }
-            .controls-left { flex-direction: column; align-items: stretch; }
-            .controls label { text-align: center; }
-            .controls select, .controls button { width: 100%; font-size: 1.1rem; padding: 12px; }
-            .settlement-date { text-align: center; margin-top: 5px; }
-            .card { padding: 15px; }
-            th, td { padding: 10px 8px; font-size: 0.95rem; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>🐈 MayMayHome 家庭首頁</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="assets/maymay-icon.png">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="container">
-    <div class="banner-container">
-        <img src="littlemaymay.png" alt="MayMay Banner" class="banner-img">
+<main class="page-container">
+  <!-- 方案 A：首頁貓咪漸層歡迎卡 -->
+  <section class="hero-welcome">
+    <img src="assets/maymay-banner.jpg" alt="MayMay Banner" class="hero-welcome-bg" onerror="this.style.display='none'">
+    <div class="hero-welcome-overlay"></div>
+    <div class="hero-welcome-content">
+      <h1 id="welcomeGreeting">嗨，歡迎回來 👋</h1>
+      <p id="welcomeSubtext">正在同步最新家庭資訊...</p>
+      <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+        <span id="welcomeRoleBadge" class="badge badge-primary">載入中</span>
+        <button class="btn btn-outline btn-sm" id="refreshDashBtn" onclick="loadDashboard(false)">↻ 立即同步</button>
+      </div>
     </div>
-    
-    <h1>🐈 MayMayHome公費結算系統</h1>
-    
-    <div class="controls">
-        <div class="controls-left">
-            <label for="monthSelect">選擇查看月份：</label>
-            <select id="monthSelect" onchange="fetchData()"></select>
-            <button onclick="fetchData()">重新整理</button>
-        </div>
-        <!-- 結算日期區塊 -->
-        <div id="settlementDate" class="settlement-date">結算日期：讀取中...</div>
+  </section>
+
+  <!-- 推播權限引導卡（未開啟通知時自動顯示） -->
+  <section id="pushPromptBanner" class="push-banner hidden">
+    <div class="push-banner-text">
+      <strong id="pushPromptTitle">🔔 開啟家庭即時通知</strong>
+      <span id="pushPromptDesc">瓦斯換桶警示、重要公告與月底公費結算將第一時間推播至手機。</span>
     </div>
+    <button id="enablePushBtn" class="btn btn-primary btn-sm" onclick="handleEnablePush()">立即開啟通知</button>
+  </section>
 
-    <div id="loading">讀取與計算中，請稍候...</div>
+  <!-- 雙核心快覽卡片：瓦斯桶狀態 + 本月公費快覽 -->
+  <div class="grid-2">
+    <!-- 瓦斯桶即時狀態卡 -->
+    <section class="card">
+      <div class="card-header">
+        <h2 class="card-title">🔥 瓦斯桶即時狀態</h2>
+        <a href="home.html" class="btn btn-ghost btn-sm">歷史紀錄 →</a>
+      </div>
+      <div id="gasStatusBox">
+        <div class="empty-state">讀取瓦斯狀態中...</div>
+      </div>
+      <div id="gasActionBar" class="hidden" style="display:flex; gap:10px; flex-wrap:wrap;"></div>
+    </section>
 
-    <div id="output" style="display: none;">
-        <div class="card">
-            <h2>這個月支出明細</h2>
-            <div id="expensesTable"></div>
-        </div>
+    <!-- 本月公費快覽卡 -->
+    <section class="card">
+      <div class="card-header">
+        <h2 class="card-title">💰 本月公費快覽</h2>
+        <a href="finance.html" class="btn btn-ghost btn-sm">完整帳單 →</a>
+      </div>
+      <div id="financeOverviewBox">
+        <div class="empty-state">讀取公費摘要中...</div>
+      </div>
+    </section>
+  </div>
 
-        <div class="card">
-            <h2>成員本月結算明細</h2>
-            <div id="membersTable"></div>
-        </div>
+  <!-- 家庭公告欄 -->
+  <section class="card">
+    <div class="card-header">
+      <h2 class="card-title">📢 家庭公告欄</h2>
+      <div style="display:flex; gap:8px;">
+        <button id="openAddAnnBtn" class="btn btn-primary btn-sm hidden" onclick="openAnnModal()">＋ 發布公告</button>
+      </div>
     </div>
+    <div id="announcementsList">
+      <div class="empty-state">讀取公告中...</div>
+    </div>
+  </section>
+</main>
+
+<!-- 彈窗：發布／編輯公告 -->
+<div id="annModal" class="modal-backdrop">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="annModalTitle">📢 發布新公告</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('annModal')">✕</button>
+    </div>
+    <form id="annForm">
+      <div class="modal-body">
+        <input type="hidden" id="annEditId">
+        <div class="form-group">
+          <label for="annContent">公告內容</label>
+          <textarea id="annContent" class="form-control" required placeholder="例如：週六早上 9 點清洗水塔，記得先儲水..."></textarea>
+        </div>
+        <div class="form-group hidden" id="annPriorityGroup">
+          <label for="annPriority">重要等級（管理員專屬）</label>
+          <select id="annPriority" class="form-control">
+            <option value="一般">一般公告</option>
+            <option value="置頂">📌 置頂公告</option>
+          </select>
+        </div>
+        <div class="form-group" id="annPushGroup">
+          <label class="checkbox-row">
+            <input type="checkbox" id="annNotifyPush" checked>
+            <span>同步推播通知給全體成員</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('annModal')">取消</button>
+        <button type="submit" id="annSubmitBtn" class="btn btn-primary">發布公告</button>
+      </div>
+    </form>
+  </div>
 </div>
 
+<!-- 彈窗：切換備用瓦斯桶 -->
+<div id="gasSwitchModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <h3>⚠️ 確認已切換至第 2 桶瓦斯</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('gasSwitchModal')">✕</button>
+    </div>
+    <form id="gasSwitchForm">
+      <div class="modal-body">
+        <div class="alert alert-warning">
+          按下確認後，系統會記錄您的換桶時間、將家裡狀態轉為<strong>「剩餘 1 桶（無備用）」</strong>，並立即推播提醒全體家人留意叫瓦斯。
+        </div>
+        <div class="form-group">
+          <label for="gasSwitchNote">備註（選填）</label>
+          <input id="gasSwitchNote" class="form-control" type="text" placeholder="例如：剛洗到一半沒瓦斯已換好">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('gasSwitchModal')">取消</button>
+        <button type="submit" id="gasSwitchBtn" class="btn btn-warning">確認換桶並通知</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 彈窗：新瓦斯補滿（支援順便記帳公費） -->
+<div id="gasRefillModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width:440px;">
+    <div class="modal-header">
+      <h3>✅ 確認新瓦斯送達（補滿 2 桶）</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('gasRefillModal')">✕</button>
+    </div>
+    <form id="gasRefillForm">
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="gasRefillNote">備註（選填）</label>
+          <input id="gasRefillNote" class="form-control" type="text" placeholder="例如：瓦斯行送達 2 桶">
+        </div>
+        <div class="form-group" style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid var(--border);">
+          <label class="checkbox-row" style="margin-bottom:0;">
+            <input type="checkbox" id="gasAddExpenseCheck" onchange="toggleGasExpenseFields()">
+            <span><strong>同步計入本月公費支出</strong>（代墊人記為自己）</span>
+          </label>
+          <div id="gasExpenseFields" class="hidden" style="margin-top:12px;">
+            <div class="grid-2" style="gap:10px;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label for="gasExpenseMonth">所屬月份</label>
+                <input id="gasExpenseMonth" class="form-control" type="text" placeholder="2026.11">
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label for="gasExpenseAmount">瓦斯費用（元）</label>
+                <input id="gasExpenseAmount" class="form-control" type="number" min="1" placeholder="例如 1640">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('gasRefillModal')">取消</button>
+        <button type="submit" id="gasRefillBtn" class="btn btn-success">確認補滿 2 桶</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="app.js"></script>
 <script>
-    // 固定的 Google 試算表 ID
-    const SPREADSHEET_ID = '13EYAH1ynGnraSEvDLZ0vo8YWsbvtntf0OHU5iCuTLWE';
+  let dashData = null;
 
-    // CSV 解析器
-    function parseCSV(text) {
-        const lines = text.split(/\r?\n/);
-        return lines.map(line => {
-            const row = [];
-            let curr = '';
-            let inQuotes = false;
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                if (char === '"') {
-                    if (inQuotes && line[i + 1] === '"') {
-                        curr += '"';
-                        i++;
-                    } else {
-                        inQuotes = !inQuotes;
-                    }
-                } else if (char === ',' && !inQuotes) {
-                    row.push(curr.trim());
-                    curr = '';
-                } else {
-                    curr += char;
-                }
-            }
-            row.push(curr.trim());
-            return row;
-        });
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+  }
+
+  function updatePushBanner() {
+    const banner = document.getElementById('pushPromptBanner');
+    const title = document.getElementById('pushPromptTitle');
+    const desc = document.getElementById('pushPromptDesc');
+    const btn = document.getElementById('enablePushBtn');
+    const state = App.getPushState();
+
+    if (!state.configured || state.granted) {
+      banner.classList.add('hidden');
+      return;
     }
 
-    // 自動抓取「目錄」分頁來建構選單
-    async function initMonths() {
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('loading').textContent = '正在同步分頁清單...';
+    banner.classList.remove('hidden');
+    if (state.iosNeedInstall) {
+      title.textContent = '📲 iPhone 需「加入主畫面」才能接收推播';
+      desc.textContent = '請點擊 Safari 底部「分享」圖示 →「加入主畫面」，再從桌面打開 MayMayHome 即可啟用通知。';
+      btn.textContent = '查看說明';
+    } else {
+      title.textContent = '🔔 開啟家庭即時通知';
+      desc.textContent = '瓦斯換桶警示、置頂公告與月底公費結算將即時推播至手機。';
+      btn.textContent = '立即開啟通知';
+    }
+  }
 
-        const select = document.getElementById('monthSelect');
-        select.innerHTML = ''; 
-        
-        let useFallback = false;
-        const indexUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('目錄')}&t=${Date.now()}`;
-        
-        try {
-            const response = await fetch(indexUrl);
-            if (!response.ok) throw new Error("網路請求失敗");
-            const csvText = await response.text();
-            
-            const rows = parseCSV(csvText);
-            if (rows.length === 0 || rows[0][0].trim() !== "月份") {
-                useFallback = true;
-            } else {
-                let added = 0;
-                for (let i = 1; i < rows.length; i++) {
-                    let val = rows[i][0] ? rows[i][0].trim() : "";
-                    if (val) {
-                        const option = document.createElement('option');
-                        option.value = val;
-                        let textDisplay = val;
-                        if(val.includes('.')) {
-                            let parts = val.split('.');
-                            textDisplay = `${parts[0]} 年 ${parseInt(parts[1], 10)} 月`;
-                        }
-                        option.textContent = textDisplay;
-                        select.appendChild(option);
-                        added++;
-                    }
-                }
-                if (added === 0) useFallback = true;
-            }
-        } catch (e) {
-            useFallback = true;
-        }
+  async function handleEnablePush() {
+    await App.requestPushPermission();
+    updatePushBanner();
+  }
 
-        // 備用防呆機制
-        if (useFallback) {
-            const today = new Date();
-            today.setMonth(today.getMonth() - 1); 
-            let year = today.getFullYear();
-            let month = today.getMonth() + 1;
+  function renderWelcome(user) {
+    document.getElementById('welcomeGreeting').textContent = `嗨，${user.displayName} 👋`;
+    const isReadOnly = user.status === '待結電費';
+    document.getElementById('welcomeSubtext').textContent = isReadOnly
+      ? '您目前為「待結電費」唯讀狀態，可檢視公費結算明細。'
+      : '歡迎回到 MayMayHome，快速掌握居家動態與本月帳務。';
 
-            for (let i = 0; i < 24; i++) {
-                const option = document.createElement('option');
-                const mZero = month < 10 ? `0${month}` : `${month}`;
-                const val = `${year}.${mZero}`; 
-                option.value = val;
-                option.textContent = `${year} 年 ${month} 月`;
-                select.appendChild(option);
+    const badge = document.getElementById('welcomeRoleBadge');
+    badge.textContent = user.role === 'Admin' ? '👑 管理員' : (isReadOnly ? '⚡ 待結電費（唯讀）' : '🏠 家庭成員');
+    badge.className = 'badge ' + (user.role === 'Admin' ? 'badge-primary' : (isReadOnly ? 'badge-warning' : 'badge-success'));
 
-                month--;
-                if (month === 0) { month = 12; year--; }
-            }
-        }
+    if (!isReadOnly) {
+      document.getElementById('openAddAnnBtn').classList.remove('hidden');
+    } else {
+      document.getElementById('openAddAnnBtn').classList.add('hidden');
+    }
+  }
 
-        document.getElementById('loading').textContent = '讀取與計算中，請稍候...';
-        fetchData(); 
+  function renderDashboard(data) {
+    dashData = data;
+    const user = App.getUser();
+    const canWrite = user && user.status === '啟用';
+
+    // 1. 瓦斯狀態卡
+    const g = data.gasStatus || {};
+    const isLow = Number(g.remainingTanks) <= 1;
+    document.getElementById('gasStatusBox').innerHTML = `
+      <div class="gas-status-panel ${isLow ? 'gas-low' : 'gas-full'}">
+        <div>
+          <div style="font-size:1.15rem; font-weight:800;">
+            ${isLow ? '⚠️ 僅剩 1 桶（已切換備用桶）' : '✅ 2 桶滿載（尚有備用桶）'}
+          </div>
+          <div style="font-size:0.84rem; margin-top:4px; opacity:0.9;">
+            上次紀錄：${App.escapeHtml(g.lastAction || '-')}（${App.escapeHtml(g.lastOperator || '-')} · ${App.escapeHtml(g.lastTime || '-')}）
+          </div>
+        </div>
+        <span class="badge ${isLow ? 'badge-danger' : 'badge-success'}">
+          剩餘 ${g.remainingTanks ?? 2} 桶
+        </span>
+      </div>
+      <div class="grid-2" style="gap:10px; margin-bottom:14px;">
+        <div class="stat-box">
+          <div class="stat-label">距離上次操作</div>
+          <div class="stat-value">${g.daysSinceLastSwitch ?? 0} 天</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">單桶平均使用天數</div>
+          <div class="stat-value">${g.avgDaysPerTank ? g.avgDaysPerTank + ' 天' : '累計中'}</div>
+        </div>
+      </div>
+    `;
+
+    const gasBar = document.getElementById('gasActionBar');
+    if (canWrite) {
+      gasBar.classList.remove('hidden');
+      gasBar.innerHTML = isLow
+        ? `<button class="btn btn-success btn-block" onclick="openGasRefillModal()">✅ 新瓦斯已送達（補滿 2 桶）</button>`
+        : `<button class="btn btn-warning btn-block" onclick="openGasSwitchModal()">⚠️ 我已手動切換至第 2 桶</button>`;
+    } else {
+      gasBar.classList.add('hidden');
     }
 
-    // 計算當月結算日期
-    function updateSettlementDate(sheetName) {
-        if (!sheetName || !sheetName.includes('.')) {
-            document.getElementById('settlementDate').textContent = '結算日期：-';
-            return;
-        }
-        
-        const parts = sheetName.split('.');
-        const year = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10);
-        
-        const lastDay = new Date(year, month, 0).getDate();
-        
-        const mZero = month < 10 ? `0${month}` : `${month}`;
-        const dZero = lastDay < 10 ? `0${lastDay}` : `${lastDay}`;
-        
-        document.getElementById('settlementDate').textContent = `結算日期：${year} / ${mZero} / ${dZero}`;
+    // 2. 本月公費快覽卡
+    const f = data.financeOverview;
+    if (!f) {
+      document.getElementById('financeOverviewBox').innerHTML = `
+        <div class="empty-state">
+          尚未開立任何月份公費帳務。<br>
+          <a href="finance.html" class="btn btn-primary btn-sm" style="margin-top:10px;">前往公費中心</a>
+        </div>
+      `;
+    } else {
+      const my = f.mySettlement;
+      let myLabel = '本期無帳務';
+      let myBadge = '';
+      if (my) {
+        const isRefund = my.amount < 0;
+        myLabel = (isRefund ? '應退款 ' : '應繳 ') + App.formatMoney(Math.abs(my.amount)) + ' 元';
+        const statusCls = my.paymentStatus === '已繳清' ? 'badge-success'
+          : (my.paymentStatus === '待繳款' ? 'badge-danger'
+          : (my.paymentStatus === '待退款' ? 'badge-warning' : 'badge-muted'));
+        myBadge = `<span class="badge ${statusCls}">${App.escapeHtml(my.paymentStatus)}</span>`;
+      }
+
+      document.getElementById('financeOverviewBox').innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <div>
+            <div style="font-size:1.05rem; font-weight:800;">${App.escapeHtml(f.currentMonth)} 帳期</div>
+            <div class="text-muted" style="font-size:0.82rem;">結算日：${App.escapeHtml(f.settlementDate)}</div>
+          </div>
+          <span class="badge badge-primary">對帳進度 ${f.paymentProgress.paidCount} / ${f.paymentProgress.totalCount}</span>
+        </div>
+        <div class="stat-box" style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div>
+            <div class="stat-label">我的本期結算</div>
+            <div class="stat-value ${my && my.amount < 0 ? 'text-success' : 'text-primary'}">${myLabel}</div>
+          </div>
+          ${myBadge}
+        </div>
+        <div class="grid-2" style="gap:10px;">
+          <div class="stat-box">
+            <div class="stat-label">一般公費累計</div>
+            <div class="stat-value" style="font-size:1.05rem;">${App.formatMoney(f.totalShared)} 元</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">電費累計</div>
+            <div class="stat-value" style="font-size:1.05rem;">${App.formatMoney(f.totalElec)} 元</div>
+          </div>
+        </div>
+      `;
     }
 
-    async function fetchData() {
-        if(!document.getElementById('monthSelect').value) return; 
-        const sheetName = document.getElementById('monthSelect').value;
-        
-        // 更新結算日期顯示
-        updateSettlementDate(sheetName);
-        
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('output').style.display = 'none';
-
-        const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&t=${Date.now()}`;
-
-        try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error("網路連線錯誤");
-            
-            const csvText = await response.text();
-            
-            if (csvText.toLowerCase().includes("<html") || csvText.includes("CANNOT_FIND_SHEET")) {
-                throw new Error(`找不到分頁 [${sheetName}]。\n請確認雲端試算表中是否有這個月份的分頁，且權限已公開。`);
-            }
-
-            processCSV(csvText);
-        } catch (error) {
-            alert(error.message);
-        } finally {
-            document.getElementById('loading').style.display = 'none';
-        }
-    }
-
-    function processCSV(csvText) {
-        const rows = parseCSV(csvText);
-        
-        let expenses = [];
-        let totalShared = 0;
-        let totalElec = 0;
-        let advMap = {};
-        
-        let members = [];
-        let sumDays = 0;
-        let sumElecDays = 0;
-
-        for (let i = 1; i < rows.length; i++) {
-            let row = rows[i];
-            if (!row || row.join('') === '') continue;
-
-            let item = row[1] || "";
-            let priceStr = row[2] || "";
-            let paidBy = row[3] || "";
-            let price = parseFloat(priceStr.replace(/,/g, ''));
-
-            if (item && !isNaN(price) && price > 0) {
-                expenses.push({ item, price, paidBy });
-                
-                if (item.startsWith("電費")) {
-                    totalElec += price;
-                } else {
-                    totalShared += price;
-                }
-                
-                if (paidBy) {
-                    advMap[paidBy] = (advMap[paidBy] || 0) + price;
-                }
-            }
-
-            let memberName = row[5] || "";
-            if (memberName) {
-                let rent = parseFloat(row[6]) || 0;
-                let days = parseFloat(row[7]) || 0;
-                let elecDays = parseFloat(row[9]) || 0;
-
-                sumDays += days;
-                sumElecDays += elecDays;
-
-                members.push({ memberName, rent, days, elecDays });
-            }
-        }
-
-        let verificationResults = members.map(m => {
-            let sharePct = sumDays > 0 ? (m.days / sumDays) : 0;
-            let elecPct = sumElecDays > 0 ? (m.elecDays / sumElecDays) : 0;
-
-            let shareCost = totalShared * sharePct;
-            let elecCost = totalElec * elecPct;
-            let advanced = advMap[m.memberName] || 0;
-
-            let calculatedK = Math.round(m.rent + shareCost + elecCost - advanced);
-
-            return {
-                ...m,
-                shareCost: Math.round(shareCost),
-                elecCost: Math.round(elecCost),
-                advanced,
-                calculatedK
-            };
-        });
-
-        renderUI(expenses, verificationResults);
-    }
-
-    function renderUI(expenses, verificationResults) {
-        let expHtml = `
-            <table>
-                <tr>
-                    <th>項目</th>
-                    <th>總價</th>
-                    <th>代墊人</th>
-                </tr>
+    // 3. 家庭公告清單
+    const listEl = document.getElementById('announcementsList');
+    const anns = data.announcements || [];
+    if (anns.length === 0) {
+      listEl.innerHTML = `<div class="empty-state">目前沒有最新公告，點擊右上方按鈕發布第一則消息。</div>`;
+    } else {
+      listEl.innerHTML = anns.map(a => {
+        const isPinned = a.priority === '置頂';
+        const canEdit = canWrite && (user.role === 'Admin' || a.authorId === user.userId);
+        return `
+          <div class="ann-item ${isPinned ? 'pinned' : ''}">
+            <div class="ann-meta">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                ${isPinned ? '<span class="badge badge-primary">📌 置頂</span>' : '<span class="badge badge-muted">一般</span>'}
+                <strong>${App.escapeHtml(a.authorName)}</strong>
+                <span>${App.escapeHtml(a.createdAt)}</span>
+              </div>
+              ${canEdit ? `
+                <div style="display:flex; gap:4px;">
+                  <button class="btn btn-ghost btn-sm" onclick="openAnnModal('${a.id}')">編輯</button>
+                  <button class="btn btn-ghost btn-sm text-danger" onclick="archiveAnn('${a.id}')">封存</button>
+                </div>
+              ` : ''}
+            </div>
+            <div class="ann-content">${App.escapeHtml(a.content)}</div>
+          </div>
         `;
-        if(expenses.length === 0) {
-            expHtml += `<tr><td colspan="3">這個月沒有公費支出明細</td></tr>`;
-        } else {
-            expenses.forEach(e => {
-                expHtml += `
-                    <tr>
-                        <td>${e.item}</td>
-                        <td>${e.price.toLocaleString()} 元</td>
-                        <td>${e.paidBy || '-'}</td>
-                    </tr>
-                `;
-            });
-        }
-        expHtml += `</table>`;
-        document.getElementById('expensesTable').innerHTML = expHtml;
+      }).join('');
+    }
+  }
 
-        let memHtml = `
-            <table>
-                <tr>
-                    <th>成員</th>
-                    <th>自訂房租</th>
-                    <th>公費分擔</th>
-                    <th>電費分擔</th>
-                    <th>代墊扣除</th>
-                    <th>本月應繳合計</th>
-                </tr>
-        `;
-        if(verificationResults.length === 0) {
-            memHtml += `<tr><td colspan="6">未偵測到成員清單</td></tr>`;
-        } else {
-            verificationResults.forEach(m => {
-                memHtml += `
-                    <tr>
-                        <td><strong>${m.memberName}</strong></td>
-                        <td>${m.rent.toLocaleString()} 元</td>
-                        <td>+ ${m.shareCost.toLocaleString()} 元</td>
-                        <td>+ ${m.elecCost.toLocaleString()} 元</td>
-                        <td>- ${m.advanced.toLocaleString()} 元</td>
-                        <td class="total-amount">${m.calculatedK.toLocaleString()} 元</td>
-                    </tr>
-                `;
-            });
-        }
-        memHtml += `</table>`;
-        document.getElementById('membersTable').innerHTML = memHtml;
-
-        document.getElementById('output').style.display = 'block';
+  async function loadDashboard(isInitialCachePhase) {
+    const cached = App.getCache('dashboard');
+    if (cached && isInitialCachePhase) {
+      renderDashboard(cached);
+      return;
     }
 
-    window.onload = initMonths;
+    const btn = document.getElementById('refreshDashBtn');
+    btn.disabled = true;
+    btn.textContent = '同步中...';
+    try {
+      const res = await App.api('dashboard.getSummary', {});
+      App.setCache('dashboard', res.data);
+      renderDashboard(res.data);
+    } catch (err) {
+      if (!cached) App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '↻ 立即同步';
+    }
+  }
+
+  // ==================== 公告操作 ====================
+  function openAnnModal(editId = '') {
+    const user = App.getUser();
+    const defaults = App.getUiDefaults();
+    const isEdit = Boolean(editId);
+
+    document.getElementById('annEditId').value = editId;
+    document.getElementById('annModalTitle').textContent = isEdit ? '✏️ 編輯公告' : '📢 發布新公告';
+    document.getElementById('annSubmitBtn').textContent = isEdit ? '儲存變更' : '發布公告';
+    document.getElementById('annPriorityGroup').classList.toggle('hidden', user.role !== 'Admin');
+    document.getElementById('annPushGroup').classList.toggle('hidden', isEdit);
+
+    if (isEdit && dashData) {
+      const target = dashData.announcements.find(a => a.id === editId);
+      if (target) {
+        document.getElementById('annContent').value = target.content;
+        document.getElementById('annPriority').value = target.priority;
+      }
+    } else {
+      document.getElementById('annContent').value = '';
+      document.getElementById('annPriority').value = '一般';
+      document.getElementById('annNotifyPush').checked = Boolean(defaults.notifyOnAnnouncement);
+    }
+
+    document.getElementById('annModal').classList.add('open');
+  }
+
+  document.getElementById('annForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('annEditId').value;
+    const content = document.getElementById('annContent').value.trim();
+    const priority = document.getElementById('annPriority').value;
+    const notifyPush = document.getElementById('annNotifyPush').checked;
+    const btn = document.getElementById('annSubmitBtn');
+    const user = App.getUser();
+
+    btn.disabled = true;
+    try {
+      if (id) {
+        const payload = { id, content };
+        if (user.role === 'Admin') payload.priority = priority;
+        await App.api('announcement.update', payload);
+        App.toast('公告已更新', 'success');
+      } else {
+        await App.api('announcement.create', { content, priority, notifyPush });
+        App.toast('公告已發布' + (notifyPush ? '並發送推播' : ''), 'success');
+      }
+      closeModal('annModal');
+      loadDashboard(false);
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function archiveAnn(id) {
+    if (!confirm('確定要將這則公告封存移出首頁嗎？（封存後仍可在設定頁查閱）')) return;
+    try {
+      await App.api('announcement.update', { id, status: '已封存' });
+      App.toast('公告已封存', 'success');
+      loadDashboard(false);
+    } catch (err) {
+      App.toast(err.message, 'error');
+    }
+  }
+
+  // ==================== 瓦斯快速操作 ====================
+  function openGasSwitchModal() {
+    document.getElementById('gasSwitchNote').value = '';
+    document.getElementById('gasSwitchModal').classList.add('open');
+  }
+
+  function openGasRefillModal() {
+    document.getElementById('gasRefillNote').value = '';
+    document.getElementById('gasAddExpenseCheck').checked = false;
+    document.getElementById('gasExpenseFields').classList.add('hidden');
+    document.getElementById('gasExpenseMonth').value = (dashData && dashData.financeOverview)
+      ? dashData.financeOverview.currentMonth
+      : App.getCurrentMonthStr();
+    document.getElementById('gasExpenseAmount').value = '';
+    document.getElementById('gasRefillModal').classList.add('open');
+  }
+
+  function toggleGasExpenseFields() {
+    const checked = document.getElementById('gasAddExpenseCheck').checked;
+    document.getElementById('gasExpenseFields').classList.toggle('hidden', !checked);
+  }
+
+  document.getElementById('gasSwitchForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('gasSwitchBtn');
+    const note = document.getElementById('gasSwitchNote').value.trim();
+    btn.disabled = true;
+    btn.textContent = '記錄中...';
+    try {
+      await App.api('gas.switchBackup', { note });
+      App.toast('已記錄切換至備用桶並通知全員！', 'success');
+      closeModal('gasSwitchModal');
+      loadDashboard(false);
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '確認換桶並通知';
+    }
+  });
+
+  document.getElementById('gasRefillForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('gasRefillBtn');
+    const note = document.getElementById('gasRefillNote').value.trim();
+    const addExp = document.getElementById('gasAddExpenseCheck').checked;
+    const payload = { note };
+
+    if (addExp) {
+      const amount = Number(document.getElementById('gasExpenseAmount').value);
+      const month = document.getElementById('gasExpenseMonth').value.trim();
+      if (!month || !amount || amount <= 0) {
+        return App.toast('請填寫有效的入帳月份與瓦斯金額', 'error');
+      }
+      payload.createExpense = {
+        enabled: true,
+        month,
+        item: '叫瓦斯（補滿2桶）',
+        amount,
+        paidByUserId: App.getUser().userId
+      };
+    }
+
+    btn.disabled = true;
+    btn.textContent = '更新中...';
+    try {
+      await App.api('gas.refillFull', payload);
+      App.toast('已更新為 2 桶滿載並通知全員！', 'success');
+      closeModal('gasRefillModal');
+      loadDashboard(false);
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '確認補滿 2 桶';
+    }
+  });
+
+  window.addEventListener('mmh:pushReady', updatePushBanner);
+
+  App.boot('index', (user, isCachedPhase) => {
+    renderWelcome(user);
+    updatePushBanner();
+    loadDashboard(isCachedPhase);
+  });
 </script>
-
 </body>
 </html>
