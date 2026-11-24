@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>💰 公費結算中心 | MayMayHome</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="assets/maymay-icon.png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .finance-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .toolbar-left, .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .month-select {
+      min-width: 155px;
+      font-weight: 700;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .filter-pills {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .filter-pill {
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .filter-pill.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .status-select {
+      padding: 5px 8px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 0.82rem;
+      font-weight: 700;
+      background: var(--surface);
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .status-select.st-paid { background: var(--success-soft); color: var(--success); border-color: #bbf7d0; }
+    .status-select.st-unpaid { background: var(--danger-soft); color: var(--danger); border-color: #fecaca; }
+    .status-select.st-refund { background: var(--warning-soft); color: var(--warning); border-color: #fde68a; }
+    .status-select.st-open { background: #f1f5f9; color: #475569; }
+
+    .mobile-cards { display: none; }
+    .m-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      margin-bottom: 12px;
+      background: var(--surface);
+    }
+    .m-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .m-card-meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      font-size: 0.84rem;
+      background: var(--bg);
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+    .m-card-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .amount-final {
+      font-size: 1.08rem;
+      font-weight: 800;
+    }
+
+    @media (max-width: 768px) {
+      .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .desktop-table { display: none; }
+      .mobile-cards { display: block; }
+      .finance-toolbar { flex-direction: column; align-items: stretch; }
+      .toolbar-left, .toolbar-right { width: 100%; }
+      .month-select { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+
+<main class="page-container">
+  <!-- 頂部月份與管理員操作列 -->
+  <section class="card" style="padding:16px 18px;">
+    <div class="finance-toolbar">
+      <div class="toolbar-left">
+        <select id="monthSelect" class="form-control month-select" onchange="onMonthChange()"></select>
+        <button class="btn btn-outline btn-sm" id="refreshBtn" onclick="loadMonthData(currentMonth, false)">↻ 同步</button>
+        <span id="settlementDateBadge" class="badge badge-danger">結算日：-</span>
+      </div>
+      <div id="adminToolbar" class="toolbar-right hidden">
+        <button class="btn btn-outline btn-sm" onclick="openInitMonthModal()">＋ 開立新月份</button>
+        <button class="btn btn-outline btn-sm" id="importTplBtn" onclick="handleImportTemplates()">📑 匯入固定支出</button>
+        <button class="btn btn-primary btn-sm" id="sendSettleBtn" onclick="handleSendSettlementNotify()">📊 結算並推播全員</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 開帳空房或四捨五入差額提醒 -->
+  <div id="financeWarningsBox"></div>
+
+  <!-- 統計摘要卡 -->
+  <section class="summary-grid" id="summaryGrid">
+    <div class="card" style="margin-bottom:0; padding:14px;">
+      <div class="stat-label">整月總房租</div>
+      <div class="stat-value" id="sumRent">-</div>
+    </div>
+    <div class="card" style="margin-bottom:0; padding:14px;">
+      <div class="stat-label">一般公費累計</div>
+      <div class="stat-value text-primary" id="sumShared">-</div>
+    </div>
+    <div class="card" style="margin-bottom:0; padding:14px;">
+      <div class="stat-label">電費累計</div>
+      <div class="stat-value" style="color:var(--warning);" id="sumElec">-</div>
+    </div>
+    <div class="card" style="margin-bottom:0; padding:14px;">
+      <div class="stat-label">成員對帳進度</div>
+      <div class="stat-value text-success" id="sumProgress">-</div>
+    </div>
+  </section>
+
+  <!-- 區塊一：成員本月結算與對帳 -->
+  <section class="card">
+    <div class="card-header">
+      <h2 class="card-title">🧾 成員本月結算明細</h2>
+      <span id="daysTotalHint" class="text-muted" style="font-size:0.84rem;"></span>
+    </div>
+    <div id="settlementsDesktop" class="table-wrap desktop-table"></div>
+    <div id="settlementsMobile" class="mobile-cards"></div>
+  </section>
+
+  <!-- 區塊二：本月公費與電費支出明細 -->
+  <section class="card">
+    <div class="card-header">
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <h2 class="card-title">💸 這個月支出明細</h2>
+        <div class="filter-pills">
+          <button class="filter-pill active" onclick="setExpenseFilter('ALL', this)">全部</button>
+          <button class="filter-pill" onclick="setExpenseFilter('一般公費', this)">一般公費</button>
+          <button class="filter-pill" onclick="setExpenseFilter('電費', this)">⚡ 電費</button>
+        </div>
+      </div>
+      <button id="addExpenseBtn" class="btn btn-primary btn-sm hidden" onclick="openExpenseModal()">＋ 新增支出</button>
+    </div>
+    <div id="expensesDesktop" class="table-wrap desktop-table"></div>
+    <div id="expensesMobile" class="mobile-cards"></div>
+  </section>
+</main>
+
+<!-- 彈窗：新增／編輯支出項目 -->
+<div id="expenseModal" class="modal-backdrop">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="expModalTitle">＋ 新增公費支出</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('expenseModal')">✕</button>
+    </div>
+    <form id="expenseForm">
+      <div class="modal-body">
+        <input type="hidden" id="expEditId">
+        <div class="grid-2" style="gap:10px;">
+          <div class="form-group">
+            <label for="expMonth">所屬帳期月份</label>
+            <input id="expMonth" class="form-control" type="text" required placeholder="YYYY.MM">
+          </div>
+          <div class="form-group">
+            <label for="expDate">消費日期</label>
+            <input id="expDate" class="form-control" type="date" required>
+          </div>
+        </div>
+        <div class="grid-2" style="gap:10px;">
+          <div class="form-group">
+            <label for="expCategory">分攤類型</label>
+            <select id="expCategory" class="form-control">
+              <option value="一般公費">一般公費（按公費天數分擔）</option>
+              <option value="電費">⚡ 電費（按電費天數分擔）</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="expAmount">總金額（元）</label>
+            <input id="expAmount" class="form-control" type="number" min="1" step="1" required placeholder="請輸入正整數">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="expItem">項目名稱</label>
+          <input id="expItem" class="form-control" type="text" required placeholder="例如：11月台電帳單、全聯垃圾袋與清潔劑">
+        </div>
+        <div class="form-group">
+          <label for="expPaidBy">代墊人</label>
+          <select id="expPaidBy" class="form-control"></select>
+        </div>
+        <div class="form-group">
+          <label for="expNote">備註（選填）</label>
+          <input id="expNote" class="form-control" type="text" placeholder="選填說明">
+        </div>
+        <div class="form-group" id="expPushGroup" style="margin-bottom:0;">
+          <label class="checkbox-row">
+            <input type="checkbox" id="expNotifyPush">
+            <span>同步推播通知全體成員（建議大額帳單再勾選）</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('expenseModal')">取消</button>
+        <button type="submit" id="expSubmitBtn" class="btn btn-primary">儲存支出</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 彈窗：Admin 開立新月份 -->
+<div id="initMonthModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width:430px;">
+    <div class="modal-header">
+      <h3>📅 開立新月份帳務</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('initMonthModal')">✕</button>
+    </div>
+    <form id="initMonthForm">
+      <div class="modal-body">
+        <div class="alert alert-info">
+          系統將依「總房租 × 房間比例 ÷ 同房啟用人數」自動帶入各成員房租；狀態為「待結電費」的室友會自動帶入房租 0 元、天數 0，供填入該期電費天數。
+        </div>
+        <div class="form-group">
+          <label for="newMonthInput">開立月份（格式 YYYY.MM）</label>
+          <input id="newMonthInput" class="form-control" type="text" required pattern="\d{4}\.\d{2}" placeholder="例如 2026.12">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="checkbox-row">
+            <input type="checkbox" id="initImportTemplates" checked>
+            <span>同步匯入啟用中的「固定支出模板」</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('initMonthModal')">取消</button>
+        <button type="submit" id="initMonthSubmitBtn" class="btn btn-primary">建立此月份</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 彈窗：Admin 調整單月成員房租與天數 -->
+<div id="memberMonthModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <h3 id="mmModalTitle">✏️ 調整成員當月天數與房租</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('memberMonthModal')">✕</button>
+    </div>
+    <form id="memberMonthForm">
+      <div class="modal-body">
+        <input type="hidden" id="mmSettlementId">
+        <div class="form-group">
+          <label for="mmRent">當月自訂房租（元）</label>
+          <input id="mmRent" class="form-control" type="number" min="0" step="1" required>
+        </div>
+        <div class="grid-2" style="gap:10px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="mmSharedDays">公費分擔天數</label>
+            <input id="mmSharedDays" class="form-control" type="number" min="0" max="62" step="0.5" required>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="mmElecDays">電費分擔天數</label>
+            <input id="mmElecDays" class="form-control" type="number" min="0" max="65" step="0.5" required>
+          </div>
+        </div>
+        <p class="form-hint" style="margin-top:10px;">
+          修改後系統會自動依最新天數比例重算全體成員的公費、電費與應繳合計。
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('memberMonthModal')">取消</button>
+        <button type="submit" id="mmSubmitBtn" class="btn btn-primary">儲存並重算</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  let monthData = null;
+  let currentMonth = '';
+  let expenseFilter = 'ALL';
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+  }
+
+  function formatMonthLabel(m) {
+    if (!m || !m.includes('.')) return m || '-';
+    const [y, mm] = m.split('.');
+    return `${y} 年 ${parseInt(mm, 10)} 月 (${m})`;
+  }
+
+  function getStatusClass(st) {
+    if (st === '已繳清') return 'st-paid';
+    if (st === '待繳款') return 'st-unpaid';
+    if (st === '待退款') return 'st-refund';
+    return 'st-open';
+  }
+
+  function getStatusBadgeClass(st) {
+    if (st === '已繳清') return 'badge-success';
+    if (st === '待繳款') return 'badge-danger';
+    if (st === '待退款') return 'badge-warning';
+    return 'badge-muted';
+  }
+
+  function renderPage(data) {
+    monthData = data;
+    currentMonth = data.month || '';
+
+    const user = App.getUser();
+    const isAdmin = user && user.role === 'Admin';
+    const canWrite = user && user.status === '啟用';
+
+    // 權限按鈕顯示控制
+    document.getElementById('adminToolbar').classList.toggle('hidden', !isAdmin);
+    document.getElementById('addExpenseBtn').classList.toggle('hidden', !canWrite || !currentMonth);
+    document.getElementById('importTplBtn').disabled = !currentMonth;
+    document.getElementById('sendSettleBtn').disabled = !currentMonth;
+
+    // 月份下拉選單
+    const sel = document.getElementById('monthSelect');
+    const months = data.availableMonths || [];
+    if (months.length === 0) {
+      sel.innerHTML = `<option value="">尚未開立任何月份</option>`;
+    } else {
+      sel.innerHTML = months.map(m =>
+        `<option value="${App.escapeHtml(m)}" ${m === currentMonth ? 'selected' : ''}>${formatMonthLabel(m)}</option>`
+      ).join('');
+    }
+
+    document.getElementById('settlementDateBadge').textContent = `結算日：${data.settlementDate || '-'}`;
+
+    // 摘要統計
+    const sum = data.summary || { totalRent: 0, totalShared: 0, totalElec: 0, totalDays: 0, totalElecDays: 0 };
+    const settlements = data.settlements || [];
+    const paidCount = settlements.filter(s => s.paymentStatus === '已繳清').length;
+
+    document.getElementById('sumRent').textContent = App.formatMoney(sum.totalRent) + ' 元';
+    document.getElementById('sumShared').textContent = App.formatMoney(sum.totalShared) + ' 元';
+    document.getElementById('sumElec').textContent = App.formatMoney(sum.totalElec) + ' 元';
+    document.getElementById('sumProgress').textContent = `${paidCount} / ${settlements.length}`;
+    document.getElementById('daysTotalHint').textContent = currentMonth
+      ? `總公費天數 ${sum.totalDays} 天 ｜ 總電費天數 ${sum.totalElecDays} 天`
+      : '';
+
+    renderSettlements(settlements, isAdmin);
+    renderExpenses(data.expenses || [], user, isAdmin, canWrite);
+  }
+
+  function renderSettlements(settlements, isAdmin) {
+    const desk = document.getElementById('settlementsDesktop');
+    const mob = document.getElementById('settlementsMobile');
+
+    if (!currentMonth || settlements.length === 0) {
+      const emptyHtml = `
+        <div class="empty-state">
+          ${isAdmin ? '目前尚未開立任何月份帳務，請點擊上方「＋ 開立新月份」開始記帳。' : '目前尚無公費結算資料。'}
+        </div>`;
+      desk.innerHTML = emptyHtml;
+      mob.innerHTML = emptyHtml;
+      return;
+    }
+
+    const statuses = ['未結算', '待繳款', '已繳清', '待退款'];
+
+    // 桌面版表格
+    desk.innerHTML = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>成員</th>
+            <th>自訂房租</th>
+            <th>公費分擔 (天數)</th>
+            <th>電費分擔 (天數)</th>
+            <th>代墊扣除</th>
+            <th>本月結算合計</th>
+            <th>對帳狀態</th>
+            ${isAdmin ? '<th>管理操作</th>' : ''}
+          </tr>
+        </thead>
+        <tbody>
+          ${settlements.map(m => {
+            const isRefund = m.finalAmount < 0;
+            const amtHtml = isRefund
+              ? `<span class="amount-final text-success">應退 ${App.formatMoney(Math.abs(m.finalAmount))} 元</span>`
+              : `<span class="amount-final ${m.finalAmount === 0 ? 'text-muted' : 'text-primary'}">${App.formatMoney(m.finalAmount)} 元</span>`;
+            const statusControl = isAdmin
+              ? `<select class="status-select ${getStatusClass(m.paymentStatus)}" onchange="handleChangePaymentStatus('${m.settlementId}', this.value)">
+                  ${statuses.map(st => `<option value="${st}" ${m.paymentStatus === st ? 'selected' : ''}>${st}</option>`).join('')}
+                </select>`
+              : `<span class="badge ${getStatusBadgeClass(m.paymentStatus)}">${App.escapeHtml(m.paymentStatus)}</span>`;
+
+            return `
+              <tr>
+                <td>
+                  <strong>${App.escapeHtml(m.memberName)}</strong>
+                  ${m.accountStatus === '待結電費' ? '<span class="badge badge-warning" style="margin-left:4px;">待結電費</span>' : ''}
+                </td>
+                <td>${App.formatMoney(m.rent)} 元</td>
+                <td>+ ${App.formatMoney(m.shareCost)} 元 <span class="text-muted">(${m.sharedDays}天)</span></td>
+                <td>+ ${App.formatMoney(m.elecCost)} 元 <span class="text-muted">(${m.elecDays}天)</span></td>
+                <td class="text-danger">- ${App.formatMoney(m.advanced)} 元</td>
+                <td>${amtHtml}</td>
+                <td>${statusControl}</td>
+                ${isAdmin ? `
+                  <td>
+                    <button class="btn btn-outline btn-sm" onclick="openMemberMonthModal('${m.settlementId}')">調整</button>
+                    ${m.paymentStatus === '待繳款' && m.finalAmount > 0
+                      ? `<button class="btn btn-ghost btn-sm" onclick="handleSendReminder('${m.settlementId}', '${App.escapeHtml(m.memberName)}')">⏰ 提醒</button>`
+                      : ''}
+                  </td>
+                ` : ''}
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+
+    // 手機版卡片
+    mob.innerHTML = settlements.map(m => {
+      const isRefund = m.finalAmount < 0;
+      const amtText = isRefund
+        ? `<span class="amount-final text-success">應退 ${App.formatMoney(Math.abs(m.finalAmount))} 元</span>`
+        : `<span class="amount-final ${m.finalAmount === 0 ? 'text-muted' : 'text-primary'}">應繳 ${App.formatMoney(m.finalAmount)} 元</span>`;
+      const statusControl = isAdmin
+        ? `<select class="status-select ${getStatusClass(m.paymentStatus)}" onchange="handleChangePaymentStatus('${m.settlementId}', this.value)">
+            ${statuses.map(st => `<option value="${st}" ${m.paymentStatus === st ? 'selected' : ''}>${st}</option>`).join('')}
+          </select>`
+        : `<span class="badge ${getStatusBadgeClass(m.paymentStatus)}">${App.escapeHtml(m.paymentStatus)}</span>`;
+
+      return `
+        <div class="m-card">
+          <div class="m-card-top">
+            <div>
+              <strong style="font-size:1.05rem;">${App.escapeHtml(m.memberName)}</strong>
+              ${m.accountStatus === '待結電費' ? '<span class="badge badge-warning" style="margin-left:4px;">待結電費</span>' : ''}
+            </div>
+            ${amtText}
+          </div>
+          <div class="m-card-meta">
+            <div>房租：<strong>${App.formatMoney(m.rent)} 元</strong></div>
+            <div>代墊：<strong class="text-danger">- ${App.formatMoney(m.advanced)} 元</strong></div>
+            <div>公費：<strong>+ ${App.formatMoney(m.shareCost)} 元</strong> (${m.sharedDays}天)</div>
+            <div>電費：<strong>+ ${App.formatMoney(m.elecCost)} 元</strong> (${m.elecDays}天)</div>
+          </div>
+          <div class="m-card-actions">
+            <div>${statusControl}</div>
+            ${isAdmin ? `
+              <div style="display:flex; gap:6px;">
+                <button class="btn btn-outline btn-sm" onclick="openMemberMonthModal('${m.settlementId}')">✏️ 調整天數/房租</button>
+                ${m.paymentStatus === '待繳款' && m.finalAmount > 0
+                  ? `<button class="btn btn-ghost btn-sm" onclick="handleSendReminder('${m.settlementId}', '${App.escapeHtml(m.memberName)}')">⏰ 提醒</button>`
+                  : ''}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function setExpenseFilter(cat, btnEl) {
+    expenseFilter = cat;
+    document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+    if (monthData) {
+      const user = App.getUser();
+      renderExpenses(monthData.expenses || [], user, user.role === 'Admin', user.status === '啟用');
+    }
+  }
+
+  function renderExpenses(allExpenses, user, isAdmin, canWrite) {
+    const desk = document.getElementById('expensesDesktop');
+    const mob = document.getElementById('expensesMobile');
+
+    const list = expenseFilter === 'ALL'
+      ? allExpenses
+      : allExpenses.filter(e => e.category === expenseFilter);
+
+    if (list.length === 0) {
+      const emptyHtml = `<div class="empty-state">這個分類目前沒有支出明細。</div>`;
+      desk.innerHTML = emptyHtml;
+      mob.innerHTML = emptyHtml;
+      return;
+    }
+
+    // 桌面表格
+    desk.innerHTML = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>日期</th>
+            <th>分類</th>
+            <th>項目名稱</th>
+            <th>金額</th>
+            <th>代墊人</th>
+            <th>備註</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${list.map(e => {
+            const canEdit = canWrite && (isAdmin || e.createdById === user.userId);
+            return `
+              <tr>
+                <td class="text-muted">${App.escapeHtml(e.date)}</td>
+                <td><span class="badge ${e.category === '電費' ? 'badge-warning' : 'badge-primary'}">${App.escapeHtml(e.category)}</span></td>
+                <td><strong>${App.escapeHtml(e.item)}</strong></td>
+                <td style="font-weight:700;">${App.formatMoney(e.amount)} 元</td>
+                <td>${App.escapeHtml(e.paidByName || '-')}</td>
+                <td class="text-muted">${App.escapeHtml(e.note || '-')}</td>
+                <td>
+                  ${canEdit ? `
+                    <button class="btn btn-outline btn-sm" onclick="openExpenseModal('${e.id}')">編輯</button>
+                    <button class="btn btn-ghost btn-sm text-danger" onclick="handleDeleteExpense('${e.id}', '${App.escapeHtml(e.item)}')">刪除</button>
+                  ` : '<span class="text-muted">-</span>'}
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+
+    // 手機卡片
+    mob.innerHTML = list.map(e => {
+      const canEdit = canWrite && (isAdmin || e.createdById === user.userId);
+      return `
+        <div class="m-card">
+          <div class="m-card-top" style="margin-bottom:6px;">
+            <div>
+              <span class="badge ${e.category === '電費' ? 'badge-warning' : 'badge-primary'}">${App.escapeHtml(e.category)}</span>
+              <strong style="margin-left:6px;">${App.escapeHtml(e.item)}</strong>
+            </div>
+            <strong class="text-primary" style="font-size:1.05rem;">${App.formatMoney(e.amount)} 元</strong>
+          </div>
+          <div class="text-muted" style="font-size:0.84rem; margin-bottom:${canEdit ? '10px' : '0'};">
+            日期：${App.escapeHtml(e.date)} ｜ 代墊：<strong>${App.escapeHtml(e.paidByName || '無')}</strong>
+            ${e.note ? `<br>備註：${App.escapeHtml(e.note)}` : ''}
+          </div>
+          ${canEdit ? `
+            <div style="display:flex; justify-content:flex-end; gap:6px;">
+              <button class="btn btn-outline btn-sm" onclick="openExpenseModal('${e.id}')">編輯</button>
+              <button class="btn btn-ghost btn-sm text-danger" onclick="handleDeleteExpense('${e.id}', '${App.escapeHtml(e.item)}')">刪除</button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function loadMonthData(month = '', isCachedPhase = false) {
+    const cacheKey = month ? ('finance_' + month) : 'finance_latest';
+    const cached = App.getCache(cacheKey);
+    if (cached && isCachedPhase) {
+      renderPage(cached);
+      return;
+    }
+
+    const btn = document.getElementById('refreshBtn');
+    btn.disabled = true;
+    btn.textContent = '同步中...';
+    try {
+      const res = await App.api('finance.getMonthData', { month });
+      App.setCache('finance_' + (res.data.month || 'latest'), res.data);
+      if (!month) App.setCache('finance_latest', res.data);
+      renderPage(res.data);
+    } catch (err) {
+      if (!cached) App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '↻ 同步';
+    }
+  }
+
+  function onMonthChange() {
+    const m = document.getElementById('monthSelect').value;
+    if (m) loadMonthData(m, false);
+  }
+
+  // ==================== 新增／編輯／刪除支出 ====================
+  function openExpenseModal(editId = '') {
+    if (!monthData) return;
+    const isEdit = Boolean(editId);
+    const user = App.getUser();
+    const defaults = App.getUiDefaults();
+
+    // 填入代墊人選單
+    const paidSel = document.getElementById('expPaidBy');
+    paidSel.innerHTML = `<option value="">（無代墊／公費直接支付）</option>` +
+      (monthData.activeMembers || []).map(m =>
+        `<option value="${App.escapeHtml(m.userId)}">${App.escapeHtml(m.displayName)}</option>`
+      ).join('');
+
+    document.getElementById('expEditId').value = editId;
+    document.getElementById('expModalTitle').textContent = isEdit ? '✏️ 編輯支出項目' : '＋ 新增公費支出';
+    document.getElementById('expPushGroup').classList.toggle('hidden', isEdit);
+
+    if (isEdit) {
+      const target = monthData.expenses.find(e => e.id === editId);
+      if (!target) return;
+      document.getElementById('expMonth').value = target.month;
+      document.getElementById('expDate').value = target.date;
+      document.getElementById('expCategory').value = target.category;
+      document.getElementById('expAmount').value = target.amount;
+      document.getElementById('expItem').value = target.item;
+      document.getElementById('expPaidBy').value = target.paidByUserId || '';
+      document.getElementById('expNote').value = target.note || '';
+    } else {
+      document.getElementById('expenseForm').reset();
+      document.getElementById('expMonth').value = currentMonth || App.getCurrentMonthStr();
+      document.getElementById('expDate').value = App.getTodayStr();
+      document.getElementById('expPaidBy').value = user.userId;
+      document.getElementById('expNotifyPush').checked = Boolean(defaults.notifyOnExpense);
+    }
+
+    document.getElementById('expenseModal').classList.add('open');
+  }
+
+  document.getElementById('expenseForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('expSubmitBtn');
+    const id = document.getElementById('expEditId').value;
+    const payload = {
+      month: document.getElementById('expMonth').value.trim(),
+      date: document.getElementById('expDate').value,
+      category: document.getElementById('expCategory').value,
+      item: document.getElementById('expItem').value.trim(),
+      amount: Number(document.getElementById('expAmount').value),
+      paidByUserId: document.getElementById('expPaidBy').value,
+      note: document.getElementById('expNote').value.trim()
+    };
+
+    btn.disabled = true;
+    try {
+      let res;
+      if (id) {
+        res = await App.api('finance.updateExpense', { id, ...payload });
+      } else {
+        payload.notifyPush = document.getElementById('expNotifyPush').checked;
+        res = await App.api('finance.addExpense', payload);
+      }
+      closeModal('expenseModal');
+      App.toast(res.message, 'success');
+      App.setCache('finance_' + res.data.month, res.data);
+      renderPage(res.data);
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function handleDeleteExpense(id, itemName) {
+    if (!confirm(`確定要刪除支出「${itemName}」嗎？系統將會自動重算本月結算金額。`)) return;
+    try {
+      const res = await App.api('finance.deleteExpense', { id });
+      App.toast(res.message, 'success');
+      App.setCache('finance_' + res.data.month, res.data);
+      renderPage(res.data);
+    } catch (err) {
+      App.toast(err.message, 'error');
+    }
+  }
+
+  // ==================== Admin 開立新月份與匯入模板 ====================
+  function openInitMonthModal() {
+    let suggest = App.getCurrentMonthStr();
+    if (monthData && monthData.availableMonths && monthData.availableMonths.includes(suggest)) {
+      const [y, m] = suggest.split('.').map(Number);
+      const nextM = m === 12 ? 1 : m + 1;
+      const nextY = m === 12 ? y + 1 : y;
+      suggest = nextY + '.' + String(nextM).padStart(2, '0');
+    }
+    document.getElementById('newMonthInput').value = suggest;
+    document.getElementById('initImportTemplates').checked = true;
+    document.getElementById('initMonthModal').classList.add('open');
+  }
+
+  document.getElementById('initMonthForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('initMonthSubmitBtn');
+    const month = document.getElementById('newMonthInput').value.trim();
+    const importTemplates = document.getElementById('initImportTemplates').checked;
+
+    btn.disabled = true;
+    btn.textContent = '建立中...';
+    try {
+      const res = await App.api('finance.initMonth', { month, importTemplates });
+      closeModal('initMonthModal');
+      App.toast(res.message, 'success');
+      const warnBox = document.getElementById('financeWarningsBox');
+      warnBox.innerHTML = (res.data.warnings || [])
+        .map(w => `<div class="alert alert-warning">⚠️ ${App.escapeHtml(w)}</div>`)
+        .join('');
+      renderPage(res.data);
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '建立此月份';
+    }
+  });
+
+  async function handleImportTemplates() {
+    if (!currentMonth) return;
+    if (!confirm(`確定要將所有啟用中的固定支出模板匯入至「${currentMonth}」嗎？`)) return;
+    const btn = document.getElementById('importTplBtn');
+    btn.disabled = true;
+    try {
+      const res = await App.api('finance.importTemplates', { month: currentMonth });
+      App.toast(res.message, 'success');
+      renderPage(res.data);
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // ==================== Admin 調整單月天數、對帳與推播 ====================
+  function openMemberMonthModal(settlementId) {
+    const target = monthData.settlements.find(s => s.settlementId === settlementId);
+    if (!target) return;
+    document.getElementById('mmSettlementId').value = settlementId;
+    document.getElementById('mmModalTitle').textContent = `✏️ 調整 ${target.memberName}（${currentMonth}）`;
+    document.getElementById('mmRent').value = target.rent;
+    document.getElementById('mmSharedDays').value = target.sharedDays;
+    document.getElementById('mmElecDays').value = target.elecDays;
+    document.getElementById('memberMonthModal').classList.add('open');
+  }
+
+  document.getElementById('memberMonthForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('mmSubmitBtn');
+    btn.disabled = true;
+    try {
+      const res = await App.api('finance.updateMemberMonth', {
+        settlementId: document.getElementById('mmSettlementId').value,
+        rent: Number(document.getElementById('mmRent').value),
+        sharedDays: Number(document.getElementById('mmSharedDays').value),
+        elecDays: Number(document.getElementById('mmElecDays').value)
+      });
+      closeModal('memberMonthModal');
+      App.toast(res.message, 'success');
+      renderPage(res.data);
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function handleChangePaymentStatus(settlementId, paymentStatus) {
+    try {
+      const res = await App.api('finance.togglePaymentStatus', {
+        settlementId,
+        paymentStatus,
+        notifyMember: paymentStatus === '已繳清'
+      });
+      App.toast(res.message, 'success');
+      renderPage(res.data);
+    } catch (err) {
+      App.toast(err.message, 'error');
+      loadMonthData(currentMonth, false);
+    }
+  }
+
+  async function handleSendSettlementNotify() {
+    if (!currentMonth) return;
+    if (!confirm(`確定要結算「${currentMonth}」並推播結算摘要給全體成員嗎？\n（所有「未結算」成員將自動轉為「待繳款／待退款」）`)) return;
+    const btn = document.getElementById('sendSettleBtn');
+    btn.disabled = true;
+    btn.textContent = '結算推播中...';
+    try {
+      const res = await App.api('finance.sendSettlementNotify', { month: currentMonth });
+      App.toast(res.message, 'success');
+      renderPage(res.data);
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📊 結算並推播全員';
+    }
+  }
+
+  async function handleSendReminder(settlementId, memberName) {
+    if (!confirm(`要單獨發送一則繳款提醒推播給「${memberName}」嗎？`)) return;
+    try {
+      const res = await App.api('finance.sendPaymentReminder', { settlementId });
+      App.toast(res.message, 'success');
+    } catch (err) {
+      App.toast(err.message, 'error');
+    }
+  }
+
+  App.boot('finance', (user, isCachedPhase) => {
+    loadMonthData(currentMonth, isCachedPhase);
+  });
+</script>
+</body>
+</html>
