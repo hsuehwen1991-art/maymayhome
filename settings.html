@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>⚙️ 系統與帳號設定 | MayMayHome</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="assets/maymay-icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<main class="page-container">
+  <!-- 個人帳號與推播設定（所有成員皆可使用） -->
+  <section class="card">
+    <div class="card-header">
+      <h2 class="card-title">👤 個人帳號與通知</h2>
+      <button class="btn btn-outline btn-sm text-danger" onclick="App.logout()">登出帳號</button>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <div class="stat-box" style="margin-bottom:12px;">
+          <div class="stat-label">目前登入身份</div>
+          <div id="myProfileInfo" style="font-weight:700; font-size:1rem;">讀取中...</div>
+        </div>
+        <div class="stat-box" style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div>
+            <div class="stat-label">手機 PWA 即時推播狀態</div>
+            <div id="myPushStatusText" style="font-weight:700; font-size:0.92rem;">檢查中...</div>
+          </div>
+          <button id="myPushBtn" class="btn btn-primary btn-sm" onclick="handleSettingsPush()">開啟推播</button>
+        </div>
+      </div>
+
+      <form id="changeMyPwdForm">
+        <div class="form-group">
+          <label for="oldPwd">變更個人密碼 — 目前舊密碼</label>
+          <input id="oldPwd" class="form-control" type="password" required placeholder="請輸入舊密碼">
+        </div>
+        <div class="grid-2" style="gap:10px;">
+          <div class="form-group">
+            <label for="newPwd">新密碼</label>
+            <input id="newPwd" class="form-control" type="password" minlength="4" required placeholder="至少 4 碼">
+          </div>
+          <div class="form-group">
+            <label for="confirmNewPwd">確認新密碼</label>
+            <input id="confirmNewPwd" class="form-control" type="password" minlength="4" required placeholder="再次輸入">
+          </div>
+        </div>
+        <button type="submit" id="changePwdBtn" class="btn btn-primary btn-sm">更新我的密碼</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- 管理員專屬後台區塊 -->
+  <section id="adminSection" class="hidden">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchAdminTab('rooms', this)">🏠 總房租與房間比例</button>
+      <button class="tab-btn" onclick="switchAdminTab('accounts', this)">👥 成員與帳號連動</button>
+      <button class="tab-btn" onclick="switchAdminTab('templates', this)">📑 固定支出模板</button>
+      <button class="tab-btn" onclick="switchAdminTab('system', this)">🔔 推播與排程</button>
+      <button class="tab-btn" onclick="switchAdminTab('archived', this)">📦 封存公告</button>
+    </div>
+
+    <!-- Tab 1：總房租與房間比例（即時試算連動） -->
+    <div id="tab-rooms" class="card">
+      <div class="card-header">
+        <h2 class="card-title">🏠 總房租與房間比例設定</h2>
+        <button class="btn btn-outline btn-sm" onclick="addRoomRow()">＋ 新增房間</button>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:14px;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="totalRentInput">整戶每月總房租（元）</label>
+          <input id="totalRentInput" class="form-control" type="number" min="1" oninput="renderLiveRentPreview()">
+          <div class="form-hint">修改總房租或下方比例權重時，所有房間與同房成員分擔將即時試算連動。</div>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="roomsSyncMonth">同步更新未結算月份（選填）</label>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="checkbox" id="roomsSyncCheck" style="width:18px; height:18px; accent-color:var(--primary);">
+            <input id="roomsSyncMonth" class="form-control" type="text" placeholder="例如 2026.11">
+          </div>
+          <div class="form-hint">勾選後，若該月份全體仍為「未結算」，儲存時會同步更新該月帳單房租。</div>
+        </div>
+      </div>
+
+      <div id="rentWarningsBox"></div>
+
+      <div class="table-wrap" style="margin-bottom:16px;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>房間ID</th>
+              <th>房間名稱</th>
+              <th>比例權重</th>
+              <th>計算房間月租</th>
+              <th>目前啟用住戶</th>
+              <th>每人應繳房租</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="roomsTableBody"></tbody>
+        </table>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div id="rentSumSummary" class="text-muted" style="font-size:0.9rem;"></div>
+        <button id="saveRoomsBtn" class="btn btn-primary" onclick="saveRentAndRooms()">💾 儲存總房租與房間比例</button>
+      </div>
+    </div>
+
+    <!-- Tab 2：成員與帳號管理 -->
+    <div id="tab-accounts" class="card hidden">
+      <div class="card-header">
+        <h2 class="card-title">👥 家庭成員與帳號管理</h2>
+        <button class="btn btn-primary btn-sm" onclick="openAccountModal()">＋ 新增成員</button>
+      </div>
+      <div class="alert alert-info">
+        調整成員的「所屬房間」或「帳號狀態（啟用 / 待結電費 / 停用）」時，系統會自動連動計算同房間所有人的最新房租；設為「待結電費」將不再計入房租對分，僅保留跨月電費結算資格。
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>顯示名稱</th>
+              <th>登入帳號</th>
+              <th>角色</th>
+              <th>所屬房間</th>
+              <th>帳號狀態</th>
+              <th>動態預估房租</th>
+              <th>管理操作</th>
+            </tr>
+          </thead>
+          <tbody id="accountsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab 3：固定支出模板 -->
+    <div id="tab-templates" class="card hidden">
+      <div class="card-header">
+        <h2 class="card-title">📑 每月固定支出模板</h2>
+        <button class="btn btn-primary btn-sm" onclick="openTemplateModal()">＋ 新增模板</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>項目名稱</th>
+              <th>分攤類型</th>
+              <th>預設金額</th>
+              <th>預設代墊人</th>
+              <th>狀態</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="templatesTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab 4：系統推播與排程設定 -->
+    <div id="tab-system" class="card hidden">
+      <div class="card-header">
+        <h2 class="card-title">🔔 系統推播與月底自動排程</h2>
+      </div>
+      <form id="systemConfigForm">
+        <div class="form-group">
+          <label for="cfgAppUrl">網站公開網址（APP_URL，推播點擊跳轉用）</label>
+          <input id="cfgAppUrl" class="form-control" type="url" placeholder="https://maymayhome.pages.dev">
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="cfgAutoDay">月底自動結算推播日</label>
+            <input id="cfgAutoDay" class="form-control" type="text" placeholder="LAST（月底最後一天）或 1~28">
+          </div>
+          <div class="form-group">
+            <label for="cfgAutoTime">自動推播時段備註</label>
+            <input id="cfgAutoTime" class="form-control" type="text" placeholder="20:00">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-row">
+            <input type="checkbox" id="cfgNotifyAnn">
+            <span>發布新公告時，預設勾選「同步推播給全體成員」</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-row">
+            <input type="checkbox" id="cfgNotifyExp">
+            <span>新增公費支出時，預設勾選「同步推播給全體成員」</span>
+          </label>
+        </div>
+        <button type="submit" id="saveSysCfgBtn" class="btn btn-primary">💾 儲存系統設定</button>
+      </form>
+    </div>
+
+    <!-- Tab 5：封存公告 -->
+    <div id="tab-archived" class="card hidden">
+      <div class="card-header">
+        <h2 class="card-title">📦 歷史封存公告</h2>
+        <button class="btn btn-outline btn-sm" onclick="loadArchivedAnnouncements()">↻ 重新整理</button>
+      </div>
+      <div id="archivedAnnList">
+        <div class="empty-state">點此載入已封存公告...</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- 彈窗：新增／編輯成員帳號（含即時同房連動試算） -->
+<div id="accountModal" class="modal-backdrop">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="accModalTitle">新增家庭成員</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('accountModal')">✕</button>
+    </div>
+    <form id="accountForm">
+      <div class="modal-body">
+        <input type="hidden" id="accMode" value="create">
+        <input type="hidden" id="accUserId">
+
+        <div class="grid-2" style="gap:10px;">
+          <div class="form-group">
+            <label for="accDisplayName">顯示名稱</label>
+            <input id="accDisplayName" class="form-control" type="text" required placeholder="例如：小明">
+          </div>
+          <div class="form-group">
+            <label for="accUsername">登入帳號</label>
+            <input id="accUsername" class="form-control" type="text" required placeholder="英文或暱稱">
+          </div>
+        </div>
+
+        <div class="grid-2" style="gap:10px;">
+          <div class="form-group">
+            <label for="accRoomId">所屬房間</label>
+            <select id="accRoomId" class="form-control" onchange="updateModalRentPreview()"></select>
+          </div>
+          <div class="form-group">
+            <label for="accStatus">帳號狀態</label>
+            <select id="accStatus" class="form-control" onchange="updateModalRentPreview()">
+              <option value="啟用">啟用（計入房租分擔）</option>
+              <option value="待結電費">待結電費（房租0，僅結電費）</option>
+              <option value="停用">停用（撤銷登入，保留歷史）</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 房間即時連動預覽提示 -->
+        <div id="accModalRentPreview" class="alert alert-info" style="font-size:0.86rem;"></div>
+
+        <div class="grid-3" style="gap:10px;">
+          <div class="form-group">
+            <label for="accRole">權限角色</label>
+            <select id="accRole" class="form-control">
+              <option value="Member">Member</option>
+              <option value="Admin">Admin</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="accDefaultDays">預設天數</label>
+            <input id="accDefaultDays" class="form-control" type="number" min="0" max="62" value="30">
+          </div>
+          <div class="form-group">
+            <label for="accSortOrder">排序</label>
+            <input id="accSortOrder" class="form-control" type="number" min="1" value="10">
+          </div>
+        </div>
+
+        <div class="form-group" id="accPwdGroup">
+          <label for="accPassword">初始密碼（留空由系統自動產生 4 碼臨時密碼）</label>
+          <input id="accPassword" class="form-control" type="text" placeholder="留空即自動產生">
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-row">
+            <input type="checkbox" id="accMustReset" checked>
+            <span>下次登入強制變更個人密碼</span>
+          </label>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="checkbox-row">
+            <input type="checkbox" id="accSyncMonthCheck">
+            <span>同步更新 <strong id="accSyncMonthLabel"></strong>（未結算）的同房房租</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('accountModal')">取消</button>
+        <button type="submit" id="accSubmitBtn" class="btn btn-primary">儲存成員</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 彈窗：顯示臨時密碼／入住歡迎訊息（一鍵複製） -->
+<div id="tempPwdModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width:430px;">
+    <div class="modal-header">
+      <h3>🔑 帳號與臨時密碼資訊</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('tempPwdModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-top:0; font-size:0.9rem;" class="text-muted">請點擊下方按鈕複製，直接傳給該位家庭成員即可登入並重設專屬密碼：</p>
+      <textarea id="tempPwdMessage" class="form-control" readonly style="min-height:140px; font-family:monospace; font-size:0.88rem;"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" onclick="closeModal('tempPwdModal')">關閉</button>
+      <button type="button" class="btn btn-primary" onclick="copyTempPwdMsg()">📋 一鍵複製傳給家人</button>
+    </div>
+  </div>
+</div>
+
+<!-- 彈窗：新增／編輯固定支出模板 -->
+<div id="templateModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width:440px;">
+    <div class="modal-header">
+      <h3 id="tplModalTitle">新增固定支出模板</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('templateModal')">✕</button>
+    </div>
+    <form id="templateForm">
+      <div class="modal-body">
+        <input type="hidden" id="tplId">
+        <div class="form-group">
+          <label for="tplItem">項目名稱</label>
+          <input id="tplItem" class="form-control" type="text" required placeholder="例如：中華電信網路費">
+        </div>
+        <div class="grid-2" style="gap:10px;">
+          <div class="form-group">
+            <label for="tplCategory">分攤類型</label>
+            <select id="tplCategory" class="form-control">
+              <option value="一般公費">一般公費</option>
+              <option value="電費">電費</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="tplAmount">預設金額（元）</label>
+            <input id="tplAmount" class="form-control" type="number" min="0" required value="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="tplPaidBy">預設代墊人</label>
+          <select id="tplPaidBy" class="form-control"></select>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="checkbox-row">
+            <input type="checkbox" id="tplEnabled" checked>
+            <span>啟用（每月一鍵匯入時帶入此項）</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('templateModal')">取消</button>
+        <button type="submit" id="tplSubmitBtn" class="btn btn-primary">儲存模板</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  let settingsState = {
+    totalRent: 18500,
+    rooms: [],
+    accounts: [],
+    templates: [],
+    systemConfig: {}
+  };
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+  }
+
+  // ==================== 個人資料與推播狀態 ====================
+  function renderPersonalSection(user) {
+    const roleLabel = user.role === 'Admin' ? '管理員 (Admin)' : '一般成員 (Member)';
+    document.getElementById('myProfileInfo').textContent = `${user.displayName}（@${user.username}）· ${roleLabel}`;
+    updatePersonalPushUI();
+  }
+
+  function updatePersonalPushUI() {
+    const state = App.getPushState();
+    const txt = document.getElementById('myPushStatusText');
+    const btn = document.getElementById('myPushBtn');
+
+    if (!state.configured) {
+      txt.textContent = '尚未設定 OneSignal 金鑰';
+      btn.classList.add('hidden');
+    } else if (state.iosNeedInstall) {
+      txt.textContent = 'iPhone 請先「加入主畫面」再開啟';
+      btn.classList.remove('hidden');
+      btn.textContent = '查看方式';
+    } else if (state.granted) {
+      txt.innerHTML = '<span class="text-success">✅ 已開啟並綁定此裝置</span>';
+      btn.classList.add('hidden');
+    } else {
+      txt.innerHTML = '<span class="text-danger">🔕 尚未開啟通知</span>';
+      btn.classList.remove('hidden');
+      btn.textContent = '立即開啟通知';
+    }
+  }
+
+  async function handleSettingsPush() {
+    await App.requestPushPermission();
+    updatePersonalPushUI();
+  }
+
+  document.getElementById('changeMyPwdForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const oldPassword = document.getElementById('oldPwd').value.trim();
+    const newPassword = document.getElementById('newPwd').value.trim();
+    const confirmPwd = document.getElementById('confirmNewPwd').value.trim();
+
+    if (newPassword.length < 4) return App.toast('新密碼至少需 4 碼', 'error');
+    if (newPassword !== confirmPwd) return App.toast('兩次輸入的新密碼不一致', 'error');
+
+    const btn = document.getElementById('changePwdBtn');
+    btn.disabled = true;
+    try {
+      await App.api('auth.changePassword', { oldPassword, newPassword });
+      App.toast('密碼已更新成功', 'success');
+      document.getElementById('changeMyPwdForm').reset();
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ==================== 管理員後台分頁切換 ====================
+  function switchAdminTab(tabName, btnEl) {
+    ['rooms', 'accounts', 'templates', 'system', 'archived'].forEach(t => {
+      document.getElementById('tab-' + t).classList.toggle('hidden', t !== tabName);
+    });
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+    if (tabName === 'archived') loadArchivedAnnouncements();
+  }
+
+  async function loadAdminSettings() {
+    try {
+      const res = await App.api('settings.getAll', {});
+      const d = res.data;
+      settingsState = {
+        totalRent: d.systemConfig.totalRent,
+        rooms: d.rentPreview.rooms.map(r => ({ roomId: r.roomId, name: r.name, weight: r.weight })),
+        accounts: d.accounts,
+        templates: d.templates,
+        systemConfig: d.systemConfig
+      };
+
+      document.getElementById('totalRentInput').value = settingsState.totalRent;
+      document.getElementById('roomsSyncMonth').value = App.getCurrentMonthStr();
+
+      // 系統設定表單
+      document.getElementById('cfgAppUrl').value = d.systemConfig.appUrl || location.origin;
+      document.getElementById('cfgAutoDay').value = d.systemConfig.autoSettleDay || 'LAST';
+      document.getElementById('cfgAutoTime').value = d.systemConfig.autoSettleTime || '20:00';
+      document.getElementById('cfgNotifyAnn').checked = Boolean(d.systemConfig.notifyOnAnnouncement);
+      document.getElementById('cfgNotifyExp').checked = Boolean(d.systemConfig.notifyOnExpense);
+
+      renderRoomsTable();
+      renderAccountsTable();
+      renderTemplatesTable();
+    } catch (err) {
+      App.toast('讀取設定失敗：' + err.message, 'error');
+    }
+  }
+
+  // ==================== 前端即時三層房租試算引擎（與後端完全一致） ====================
+  function computeLocalRentPreview(totalRent, rooms, accounts) {
+    const totalWeight = rooms.reduce((s, r) => s + (Number(r.weight) || 0), 0);
+    const warnings = [];
+    let roomRentSum = 0;
+    let allocatedSum = 0;
+
+    const roomRows = rooms.map(r => {
+      const weight = Number(r.weight) || 0;
+      const roomRent = totalWeight > 0 ? Math.round(totalRent * (weight / totalWeight)) : 0;
+      const activeMembers = accounts.filter(a => a.roomId === r.roomId && a.status === '啟用');
+      const activeCount = activeMembers.length;
+      const perPersonRent = activeCount > 0 ? Math.round(roomRent / activeCount) : 0;
+
+      roomRentSum += roomRent;
+      allocatedSum += perPersonRent * activeCount;
+      if (activeCount === 0 && roomRent > 0) {
+        warnings.push(`${r.name || r.roomId} 目前無人承租（${App.formatMoney(roomRent)} 元未分配）`);
+      }
+
+      return { ...r, weight, roomRent, activeCount, activeMembers, perPersonRent };
+    });
+
+    const roomDiff = roomRentSum - totalRent;
+    const allocatedDiff = allocatedSum - totalRent;
+    if (roomDiff !== 0) {
+      warnings.push(`各房比例四捨五入加總與總房租差額：${roomDiff > 0 ? '+' : ''}${roomDiff} 元`);
+    } else if (allocatedDiff !== 0 && warnings.length === 0) {
+      warnings.push(`同房對分四捨五入後與總房租差額：${allocatedDiff > 0 ? '+' : ''}${allocatedDiff} 元`);
+    }
+
+    return { totalRent, totalWeight, rooms: roomRows, roomRentSum, allocatedSum, warnings };
+  }
+
+  // ==================== Tab 1：房間比例表 ====================
+  function renderRoomsTable() {
+    const tbody = document.getElementById('roomsTableBody');
+    tbody.innerHTML = settingsState.rooms.map((r, idx) => `
+      <tr>
+        <td><input class="form-control" style="width:90px;" value="${App.escapeHtml(r.roomId)}" onchange="updateRoomField(${idx}, 'roomId', this.value)"></td>
+        <td><input class="form-control" style="width:120px;" value="${App.escapeHtml(r.name)}" oninput="updateRoomField(${idx}, 'name', this.value)"></td>
+        <td><input class="form-control" style="width:90px;" type="number" min="1" value="${r.weight}" oninput="updateRoomField(${idx}, 'weight', Number(this.value))"></td>
+        <td id="rmRent_${idx}" style="font-weight:700;">-</td>
+        <td id="rmMembers_${idx}">-</td>
+        <td id="rmPerPerson_${idx}" class="text-primary" style="font-weight:800;">-</td>
+        <td><button class="btn btn-ghost btn-sm text-danger" onclick="removeRoomRow(${idx})">刪除</button></td>
+      </tr>
+    `).join('');
+    renderLiveRentPreview();
+  }
+
+  function updateRoomField(idx, field, val) {
+    settingsState.rooms[idx][field] = val;
+    renderLiveRentPreview();
+  }
+
+  function addRoomRow() {
+    const nextLetter = String.fromCharCode(65 + settingsState.rooms.length);
+    settingsState.rooms.push({ roomId: 'RM_' + nextLetter, name: '房間 ' + nextLetter, weight: 10 });
+    renderRoomsTable();
+  }
+
+  function removeRoomRow(idx) {
+    if (settingsState.rooms.length <= 1) return App.toast('至少須保留一間房間', 'warning');
+    settingsState.rooms.splice(idx, 1);
+    renderRoomsTable();
+  }
+
+  function renderLiveRentPreview() {
+    const totalRent = Number(document.getElementById('totalRentInput').value) || 0;
+    settingsState.totalRent = totalRent;
+    const preview = computeLocalRentPreview(totalRent, settingsState.rooms, settingsState.accounts);
+
+    preview.rooms.forEach((r, idx) => {
+      const rentEl = document.getElementById('rmRent_' + idx);
+      const memEl = document.getElementById('rmMembers_' + idx);
+      const ppEl = document.getElementById('rmPerPerson_' + idx);
+      if (!rentEl) return;
+
+      const pct = preview.totalWeight > 0 ? ((r.weight / preview.totalWeight) * 100).toFixed(1) : '0.0';
+      rentEl.textContent = `${App.formatMoney(r.roomRent)} 元 (${pct}%)`;
+      memEl.textContent = r.activeCount > 0
+        ? `${r.activeCount} 人（${r.activeMembers.map(m => m.displayName).join('、')}）`
+        : '空房 (0 人)';
+      ppEl.textContent = r.activeCount > 0 ? `${App.formatMoney(r.perPersonRent)} 元/人` : '-';
+    });
+
+    const warnBox = document.getElementById('rentWarningsBox');
+    warnBox.innerHTML = preview.warnings.map(w => `<div class="alert alert-warning">⚠️ ${App.escapeHtml(w)}</div>`).join('');
+
+    document.getElementById('rentSumSummary').innerHTML =
+      `權重總和：<strong>${preview.totalWeight}</strong> ｜ 各房加總：<strong>${App.formatMoney(preview.roomRentSum)} 元</strong> ｜ 成員分擔總計：<strong>${App.formatMoney(preview.allocatedSum)} 元</strong>`;
+  }
+
+  async function saveRentAndRooms() {
+    const btn = document.getElementById('saveRoomsBtn');
+    const syncMonth = document.getElementById('roomsSyncCheck').checked
+      ? document.getElementById('roomsSyncMonth').value.trim()
+      : '';
+
+    btn.disabled = true;
+    btn.textContent = '儲存中...';
+    try {
+      const res = await App.api('settings.saveRentAndRooms', {
+        totalRent: settingsState.totalRent,
+        rooms: settingsState.rooms,
+        syncCurrentMonth: syncMonth
+      });
+      let msg = '總房租與房間比例已儲存';
+      if (res.data.syncInfo) {
+        msg += res.data.syncInfo.synced
+          ? `（已同步刷新 ${syncMonth} 房租）`
+          : '（該月已結算或未開立，未覆蓋舊帳）';
+      }
+      App.toast(msg, 'success');
+      await loadAdminSettings();
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '💾 儲存總房租與房間比例';
+    }
+  }
+
+  // ==================== Tab 2：成員與帳號連動 ====================
+  function renderAccountsTable() {
+    const preview = computeLocalRentPreview(settingsState.totalRent, settingsState.rooms, settingsState.accounts);
+    const roomMap = {};
+    preview.rooms.forEach(r => { roomMap[r.roomId] = r; });
+
+    const tbody = document.getElementById('accountsTableBody');
+    tbody.innerHTML = settingsState.accounts.map(a => {
+      const rm = roomMap[a.roomId];
+      const rentVal = (a.status === '啟用' && rm) ? rm.perPersonRent : 0;
+      const statusBadge = a.status === '啟用' ? 'badge-success'
+        : (a.status === '待結電費' ? 'badge-warning' : 'badge-muted');
+
+      return `
+        <tr>
+          <td><strong>${App.escapeHtml(a.displayName)}</strong></td>
+          <td>@${App.escapeHtml(a.username)}</td>
+          <td><span class="badge ${a.role === 'Admin' ? 'badge-primary' : 'badge-muted'}">${a.role}</span></td>
+          <td>${rm ? App.escapeHtml(rm.name) : App.escapeHtml(a.roomId || '-')}</td>
+          <td><span class="badge ${statusBadge}">${App.escapeHtml(a.status)}</span></td>
+          <td style="font-weight:700;" class="${rentVal > 0 ? 'text-primary' : 'text-muted'}">${App.formatMoney(rentVal)} 元</td>
+          <td>
+            <button class="btn btn-outline btn-sm" onclick="openAccountModal('${a.userId}')">編輯</button>
+            <button class="btn btn-ghost btn-sm" onclick="resetMemberPassword('${a.userId}', '${App.escapeHtml(a.displayName)}')">🔑 重設密碼</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function openAccountModal(userId = '') {
+    const roomSelect = document.getElementById('accRoomId');
+    roomSelect.innerHTML = settingsState.rooms.map(r =>
+      `<option value="${App.escapeHtml(r.roomId)}">${App.escapeHtml(r.name)} (${App.escapeHtml(r.roomId)})</option>`
+    ).join('');
+
+    const curMonth = App.getCurrentMonthStr();
+    document.getElementById('accSyncMonthLabel').textContent = curMonth;
+    document.getElementById('accSyncMonthCheck').checked = false;
+
+    if (userId) {
+      const acc = settingsState.accounts.find(a => a.userId === userId);
+      document.getElementById('accMode').value = 'update';
+      document.getElementById('accUserId').value = acc.userId;
+      document.getElementById('accModalTitle').textContent = '✏️ 編輯成員：' + acc.displayName;
+      document.getElementById('accDisplayName').value = acc.displayName;
+      document.getElementById('accUsername').value = acc.username;
+      document.getElementById('accRoomId').value = acc.roomId;
+      document.getElementById('accStatus').value = acc.status;
+      document.getElementById('accRole').value = acc.role;
+      document.getElementById('accDefaultDays').value = acc.defaultDays;
+      document.getElementById('accSortOrder').value = acc.sortOrder;
+      document.getElementById('accPassword').value = '';
+      document.getElementById('accPwdGroup').classList.add('hidden');
+      document.getElementById('accMustReset').checked = Boolean(acc.mustResetPassword);
+    } else {
+      document.getElementById('accMode').value = 'create';
+      document.getElementById('accUserId').value = '';
+      document.getElementById('accModalTitle').textContent = '＋ 新增家庭成員';
+      document.getElementById('accountForm').reset();
+      document.getElementById('accDefaultDays').value = 30;
+      document.getElementById('accSortOrder').value = settingsState.accounts.length + 1;
+      document.getElementById('accPwdGroup').classList.remove('hidden');
+      document.getElementById('accMustReset').checked = true;
+    }
+
+    updateModalRentPreview();
+    document.getElementById('accountModal').classList.add('open');
+  }
+
+  function updateModalRentPreview() {
+    const mode = document.getElementById('accMode').value;
+    const editId = document.getElementById('accUserId').value;
+    const roomId = document.getElementById('accRoomId').value;
+    const status = document.getElementById('accStatus').value;
+    const name = document.getElementById('accDisplayName').value.trim() || '此成員';
+
+    // 模擬異動後的帳號清單
+    const simAccounts = settingsState.accounts.map(a => ({ ...a }));
+    if (mode === 'create') {
+      simAccounts.push({ userId: '__NEW__', displayName: name, roomId, status });
+    } else {
+      const t = simAccounts.find(a => a.userId === editId);
+      if (t) { t.roomId = roomId; t.status = status; t.displayName = name; }
+    }
+
+    const preview = computeLocalRentPreview(settingsState.totalRent, settingsState.rooms, simAccounts);
+    const targetRm = preview.rooms.find(r => r.roomId === roomId);
+    const box = document.getElementById('accModalRentPreview');
+
+    if (status !== '啟用') {
+      box.innerHTML = `狀態設為 <strong>${status}</strong>：此成員房租為 <strong>0 元</strong>，不影響同房其他人分擔。`;
+    } else if (targetRm) {
+      const others = targetRm.activeMembers.map(m => m.displayName).join('、');
+      box.innerHTML = `試算結果：<strong>${App.escapeHtml(targetRm.name)}</strong>（房間月租 ${App.formatMoney(targetRm.roomRent)} 元）共 <strong>${targetRm.activeCount} 人</strong>（${App.escapeHtml(others)}），連動後每人應繳 <strong>${App.formatMoney(targetRm.perPersonRent)} 元</strong>。`;
+    }
+  }
+
+  document.getElementById('accountForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('accSubmitBtn');
+    const mode = document.getElementById('accMode').value;
+    const syncMonth = document.getElementById('accSyncMonthCheck').checked ? App.getCurrentMonthStr() : '';
+
+    const payload = {
+      mode,
+      userId: document.getElementById('accUserId').value,
+      displayName: document.getElementById('accDisplayName').value.trim(),
+      username: document.getElementById('accUsername').value.trim(),
+      roomId: document.getElementById('accRoomId').value,
+      status: document.getElementById('accStatus').value,
+      role: document.getElementById('accRole').value,
+      defaultDays: Number(document.getElementById('accDefaultDays').value) || 30,
+      sortOrder: Number(document.getElementById('accSortOrder').value) || 10,
+      mustResetPassword: document.getElementById('accMustReset').checked,
+      syncCurrentMonth: syncMonth
+    };
+    if (mode === 'create') {
+      payload.password = document.getElementById('accPassword').value.trim();
+    }
+
+    btn.disabled = true;
+    try {
+      const res = await App.api('settings.saveAccount', payload);
+      closeModal('accountModal');
+      App.toast(res.message, 'success');
+      await loadAdminSettings();
+
+      // 若系統自動產生臨時密碼，顯示歡迎複製彈窗
+      if (res.data.tempPassword) {
+        showTempPasswordModal(payload.displayName, payload.username, res.data.tempPassword, true);
+      }
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function resetMemberPassword(userId, displayName) {
+    if (!confirm(`確定要重設「${displayName}」的密碼並產生新的 4 碼臨時密碼嗎？`)) return;
+    try {
+      const res = await App.api('auth.resetPassword', { userId });
+      showTempPasswordModal(res.data.displayName, res.data.username, res.data.tempPassword, false);
+    } catch (err) {
+      App.toast(err.message, 'error');
+    }
+  }
+
+  function showTempPasswordModal(displayName, username, tempPwd, isNewMember) {
+    const url = settingsState.systemConfig.appUrl || location.origin;
+    const msg = isNewMember
+      ? `🐈 歡迎加入 MayMayHome！\n網址：${url}\n帳號：${username}\n臨時密碼：${tempPwd}\n（首次登入後系統會引導設定專屬密碼，建議使用 Safari/Chrome 加入主畫面並開啟通知喔！）`
+      : `🔑 MayMayHome 密碼已重設\n成員：${displayName}\n帳號：${username}\n臨時密碼：${tempPwd}\n網址：${url}\n（登入後請重新設定您的個人密碼）`;
+    document.getElementById('tempPwdMessage').value = msg;
+    document.getElementById('tempPwdModal').classList.add('open');
+  }
+
+  function copyTempPwdMsg() {
+    const msg = document.getElementById('tempPwdMessage').value;
+    App.copyText(msg, '已複製登入資訊，可直接貼給家人！');
+  }
+
+  // ==================== Tab 3：固定支出模板 ====================
+  function renderTemplatesTable() {
+    const tbody = document.getElementById('templatesTableBody');
+    if (settingsState.templates.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" class="empty-state">尚未建立固定支出模板（例如網路費、管理費）。</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = settingsState.templates.map(t => `
+      <tr>
+        <td><strong>${App.escapeHtml(t.item)}</strong></td>
+        <td><span class="badge ${t.category === '電費' ? 'badge-warning' : 'badge-primary'}">${App.escapeHtml(t.category)}</span></td>
+        <td>${App.formatMoney(t.defaultAmount)} 元</td>
+        <td>${App.escapeHtml(t.defaultPaidByName || '-')}</td>
+        <td><span class="badge ${t.enabled ? 'badge-success' : 'badge-muted'}">${t.enabled ? '啟用中' : '已停用'}</span></td>
+        <td>
+          <button class="btn btn-outline btn-sm" onclick="openTemplateModal('${t.templateId}')">編輯</button>
+          <button class="btn btn-ghost btn-sm text-danger" onclick="deleteTemplate('${t.templateId}')">刪除</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function openTemplateModal(templateId = '') {
+    const paidSelect = document.getElementById('tplPaidBy');
+    paidSelect.innerHTML = `<option value="">（無預設代墊人）</option>` +
+      settingsState.accounts.filter(a => a.status !== '停用').map(a =>
+        `<option value="${App.escapeHtml(a.userId)}">${App.escapeHtml(a.displayName)}</option>`
+      ).join('');
+
+    if (templateId) {
+      const t = settingsState.templates.find(x => x.templateId === templateId);
+      document.getElementById('tplModalTitle').textContent = '✏️ 編輯固定支出模板';
+      document.getElementById('tplId').value = t.templateId;
+      document.getElementById('tplItem').value = t.item;
+      document.getElementById('tplCategory').value = t.category;
+      document.getElementById('tplAmount').value = t.defaultAmount;
+      document.getElementById('tplPaidBy').value = t.defaultPaidByUserId || '';
+      document.getElementById('tplEnabled').checked = Boolean(t.enabled);
+    } else {
+      document.getElementById('tplModalTitle').textContent = '＋ 新增固定支出模板';
+      document.getElementById('templateForm').reset();
+      document.getElementById('tplId').value = '';
+      document.getElementById('tplEnabled').checked = true;
+    }
+    document.getElementById('templateModal').classList.add('open');
+  }
+
+  document.getElementById('templateForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('tplSubmitBtn');
+    btn.disabled = true;
+    try {
+      await App.api('settings.saveTemplate', {
+        templateId: document.getElementById('tplId').value || undefined,
+        item: document.getElementById('tplItem').value.trim(),
+        category: document.getElementById('tplCategory').value,
+        defaultAmount: Number(document.getElementById('tplAmount').value) || 0,
+        defaultPaidByUserId: document.getElementById('tplPaidBy').value,
+        enabled: document.getElementById('tplEnabled').checked
+      });
+      closeModal('templateModal');
+      App.toast('固定支出模板已儲存', 'success');
+      await loadAdminSettings();
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function deleteTemplate(templateId) {
+    if (!confirm('確定刪除此固定支出模板？')) return;
+    try {
+      await App.api('settings.saveTemplate', { templateId, item: 'DEL', delete: true });
+      App.toast('已刪除模板', 'success');
+      await loadAdminSettings();
+    } catch (err) {
+      App.toast(err.message, 'error');
+    }
+  }
+
+  // ==================== Tab 4：系統推播與排程設定 ====================
+  document.getElementById('systemConfigForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('saveSysCfgBtn');
+    btn.disabled = true;
+    try {
+      await App.api('settings.saveSystemConfig', {
+        appUrl: document.getElementById('cfgAppUrl').value.trim(),
+        autoSettleDay: document.getElementById('cfgAutoDay').value.trim(),
+        autoSettleTime: document.getElementById('cfgAutoTime').value.trim(),
+        notifyOnAnnouncement: document.getElementById('cfgNotifyAnn').checked,
+        notifyOnExpense: document.getElementById('cfgNotifyExp').checked
+      });
+      App.toast('系統推播與排程設定已儲存', 'success');
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ==================== Tab 5：封存公告查閱與還原 ====================
+  async function loadArchivedAnnouncements() {
+    const box = document.getElementById('archivedAnnList');
+    box.innerHTML = '<div class="empty-state">讀取封存公告中...</div>';
+    try {
+      const res = await App.api('announcement.list', { status: '已封存' });
+      const list = res.data.announcements || [];
+      if (list.length === 0) {
+        box.innerHTML = '<div class="empty-state">目前沒有已封存的公告。</div>';
+        return;
+      }
+      box.innerHTML = list.map(a => `
+        <div class="ann-item">
+          <div class="ann-meta">
+            <div><strong>${App.escapeHtml(a.authorName)}</strong> · ${App.escapeHtml(a.createdAt)}</div>
+            <button class="btn btn-outline btn-sm" onclick="restoreAnnouncement('${a.id}')">還原至首頁</button>
+          </div>
+          <div class="ann-content">${App.escapeHtml(a.content)}</div>
+        </div>
+      `).join('');
+    } catch (err) {
+      box.innerHTML = `<div class="empty-state text-danger">${App.escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  async function restoreAnnouncement(id) {
+    try {
+      await App.api('announcement.update', { id, status: '顯示' });
+      App.toast('公告已還原至首頁顯示', 'success');
+      loadArchivedAnnouncements();
+    } catch (err) {
+      App.toast(err.message, 'error');
+    }
+  }
+
+  window.addEventListener('mmh:pushReady', updatePersonalPushUI);
+
+  App.boot('settings', (user, isCachedPhase) => {
+    renderPersonalSection(user);
+    if (user.role === 'Admin') {
+      document.getElementById('adminSection').classList.remove('hidden');
+      if (!isCachedPhase) loadAdminSettings();
+    } else {
+      document.getElementById('adminSection').classList.add('hidden');
+    }
+  });
+</script>
+</body>
+</html>
