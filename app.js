@@ -1,6 +1,6 @@
 /**
  * MayMayHome 前端共用核心引擎
- * 負責：GAS API 請求、登入與強制改密彈窗、共用導覽列注入、快取、OneSignal PWA 推播
+ * 負責：GAS API 請求、登入與強制改密彈窗、共用導覽列注入、快取、OneSignal PWA 推播、月份格式統一
  */
 
 const App = (() => {
@@ -32,6 +32,14 @@ const App = (() => {
 
   function formatMoney(n) {
     return Number(n || 0).toLocaleString('zh-TW');
+  }
+
+  // 全站月份顯示格式統一為 xxxx年xx月（例如 2026.11 -> 2026年11月）
+  function formatMonth(monthStr) {
+    if (!monthStr) return '';
+    const m = String(monthStr).trim().match(/^(\d{4})[.\-\/](\d{1,2})$/);
+    if (!m) return String(monthStr);
+    return `${m[1]}年${String(m[2]).padStart(2, '0')}月`;
   }
 
   function getCurrentMonthStr() {
@@ -479,6 +487,7 @@ const App = (() => {
     copyText,
     escapeHtml,
     formatMoney,
+    formatMonth,
     getCurrentMonthStr,
     getTodayStr,
     getPushState,
