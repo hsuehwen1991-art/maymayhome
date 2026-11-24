@@ -136,6 +136,7 @@
               <th>角色</th>
               <th>所屬房間</th>
               <th>帳號狀態</th>
+              <th>密碼狀態／最後登入</th>
               <th>動態預估房租</th>
               <th>管理操作</th>
             </tr>
@@ -646,7 +647,16 @@
     }
   }
 
-  // ==================== Tab 2：成員與帳號（桌面表格 + 手機卡片） ====================
+  // ==================== Tab 2：成員與帳號（桌面表格 + 手機卡片，含密碼狀態與最後登入時間） ====================
+  function getPwdStatusBadgeHtml(acc) {
+    if (acc.status === '停用') {
+      return '<span class="badge badge-muted">已停用</span>';
+    }
+    return acc.mustResetPassword
+      ? '<span class="badge badge-warning">🔑 待改密碼</span>'
+      : '<span class="badge badge-success">✅ 已啟用</span>';
+  }
+
   function renderAccountsTable() {
     const preview = computeLocalRentPreview(settingsState.totalRent, settingsState.rooms, settingsState.accounts);
     const roomMap = {};
@@ -660,6 +670,8 @@
       const rentVal = (a.status === '啟用' && rm) ? rm.perPersonRent : 0;
       const statusBadge = a.status === '啟用' ? 'badge-success'
         : (a.status === '待結電費' ? 'badge-warning' : 'badge-muted');
+      const pwdBadge = getPwdStatusBadgeHtml(a);
+      const lastLoginText = a.lastLoginAt ? App.escapeHtml(a.lastLoginAt) : '尚未登入';
 
       return `
         <tr>
@@ -668,6 +680,10 @@
           <td><span class="badge ${a.role === 'Admin' ? 'badge-primary' : 'badge-muted'}">${a.role}</span></td>
           <td>${rm ? App.escapeHtml(rm.name) : App.escapeHtml(a.roomId || '-')}</td>
           <td><span class="badge ${statusBadge}">${App.escapeHtml(a.status)}</span></td>
+          <td>
+            <div>${pwdBadge}</div>
+            <div class="text-muted" style="font-size:0.78rem; margin-top:3px;">${lastLoginText}</div>
+          </td>
           <td style="font-weight:700;" class="${rentVal > 0 ? 'text-primary' : 'text-muted'}">${App.formatMoney(rentVal)} 元</td>
           <td>
             <button class="btn btn-outline btn-sm" onclick="openAccountModal('${a.userId}')">編輯</button>
@@ -682,6 +698,8 @@
       const rentVal = (a.status === '啟用' && rm) ? rm.perPersonRent : 0;
       const statusBadge = a.status === '啟用' ? 'badge-success'
         : (a.status === '待結電費' ? 'badge-warning' : 'badge-muted');
+      const pwdBadge = getPwdStatusBadgeHtml(a);
+      const lastLoginText = a.lastLoginAt ? App.escapeHtml(a.lastLoginAt) : '尚未登入';
 
       return `
         <div class="m-card">
@@ -695,6 +713,8 @@
           <div class="m-card-meta">
             <div>所屬房間：<strong>${rm ? App.escapeHtml(rm.name) : App.escapeHtml(a.roomId || '-')}</strong></div>
             <div>權限角色：<span class="badge ${a.role === 'Admin' ? 'badge-primary' : 'badge-muted'}">${a.role}</span></div>
+            <div>密碼狀態：${pwdBadge}</div>
+            <div>最後登入：<strong>${lastLoginText}</strong></div>
           </div>
           <div class="m-card-actions">
             <span class="badge ${statusBadge}">${App.escapeHtml(a.status)}</span>
@@ -819,6 +839,7 @@
     if (!confirm(`確定要重設「${displayName}」的密碼並產生新的 4 碼臨時密碼嗎？`)) return;
     try {
       const res = await App.api('auth.resetPassword', { userId });
+      await loadAdminSettings();
       showTempPasswordModal(res.data.displayName, res.data.username, res.data.tempPassword, false);
     } catch (err) {
       App.toast(err.message, 'error');
