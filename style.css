@@ -1,4 +1,4 @@
-/* MayMayHome 共用樣式表（淺色科技風 + 手機底部導覽列） */
+/* MayMayHome 共用樣式表（淺色科技風 + 手機底部導覽列 + 桌面表格/手機卡片 RWD） */
 
 :root {
   --primary: #2563eb;
@@ -264,31 +264,6 @@ a {
   color: var(--text-muted);
 }
 
-/* ==================== 推播引導橫幅 ==================== */
-.push-banner {
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-  border: 1px solid #bfdbfe;
-  border-radius: var(--radius);
-  padding: 14px 18px;
-  margin-bottom: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-.push-banner-text {
-  font-size: 0.9rem;
-  color: #1e3a8a;
-}
-
-.push-banner-text strong {
-  display: block;
-  font-size: 0.96rem;
-  margin-bottom: 2px;
-}
-
 /* ==================== 標籤、按鈕、表單 ==================== */
 .badge {
   display: inline-flex;
@@ -522,6 +497,53 @@ table.data-table th {
   background: #f8fafc;
 }
 
+/* ==================== 桌面表格 / 手機卡片 共用 RWD 元件 ==================== */
+.mobile-cards {
+  display: none;
+}
+
+.m-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  margin-bottom: 12px;
+  background: var(--surface);
+}
+
+.m-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.m-card-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  font-size: 0.84rem;
+  background: var(--bg);
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.m-card-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.room-card-inputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
 .tabs {
   display: flex;
   gap: 8px;
@@ -572,7 +594,6 @@ table.data-table th {
 }
 
 /* ==================== 方案 B：全螢幕登入遮罩與彈窗 ==================== */
-/* 開啟彈窗或登入畫面時，鎖定底層頁面捲動 */
 html:has(.modal-backdrop.open),
 body:has(.modal-backdrop.open),
 html:has(.login-screen.open),
@@ -610,7 +631,6 @@ body:has(.login-screen.open) {
   flex-direction: column;
 }
 
-/* 關鍵修正：讓包住 body 與 footer 的 form 繼承剩餘高度並允許內層捲動 */
 .modal-box > form {
   display: flex;
   flex-direction: column;
@@ -768,6 +788,8 @@ body:has(.login-screen.open) {
 @media (max-width: 768px) {
   .desktop-links { display: none; }
   .bottom-nav { display: block; }
+  .desktop-table { display: none; }
+  .mobile-cards { display: block; }
   .top-nav { padding: 0 14px; }
   .page-container {
     padding: 14px 12px calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 24px);
