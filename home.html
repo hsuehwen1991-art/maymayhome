@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>🔥 居家設備與耗材 | MayMayHome</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="assets/maymay-icon.png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .timeline {
+      position: relative;
+      padding-left: 22px;
+    }
+    .timeline::before {
+      content: "";
+      position: absolute;
+      left: 7px;
+      top: 6px;
+      bottom: 6px;
+      width: 2px;
+      background: var(--border);
+    }
+    .tl-item {
+      position: relative;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 12px;
+      background: var(--surface);
+    }
+    .tl-dot {
+      position: absolute;
+      left: -21px;
+      top: 16px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 2px var(--border);
+    }
+    .tl-dot.warn { background: var(--warning); box-shadow: 0 0 0 2px #fde68a; }
+    .tl-dot.ok { background: var(--success); box-shadow: 0 0 0 2px #bbf7d0; }
+
+    .filter-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .room-pills {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .room-pill {
+      padding: 6px 13px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted);
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .room-pill.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .device-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .device-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .code-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      padding: 9px 12px;
+    }
+    .code-digits {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 1.08rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: var(--text);
+    }
+    .history-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 6px;
+    }
+    .history-chip {
+      font-size: 0.75rem;
+      background: var(--bg);
+      color: var(--text-muted);
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+
+    @media (max-width: 768px) {
+      .device-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<main class="page-container">
+  <!-- 待結電費唯讀帳號提示 -->
+  <section id="readOnlyNotice" class="card hidden">
+    <div class="empty-state">
+      <div style="font-size:2rem; margin-bottom:8px;">⚡</div>
+      <strong>您目前為「待結電費」唯讀帳號</strong>
+      <p class="text-muted">居家設備與瓦斯紀錄僅供目前同住成員使用，您仍可前往公費中心檢視電費結算明細。</p>
+      <a href="finance.html" class="btn btn-primary btn-sm">前往公費結算中心</a>
+    </div>
+  </section>
+
+  <!-- 主內容區 -->
+  <div id="homeMainContent">
+    <div class="tabs">
+      <button id="tabBtnGas" class="tab-btn active" onclick="switchHomeTab('gas')">🔥 瓦斯桶追蹤與紀錄</button>
+      <button id="tabBtnHomekit" class="tab-btn" onclick="switchHomeTab('homekit')">💡 HomeKit 智慧燈泡庫</button>
+    </div>
+
+    <!-- 分頁 A：瓦斯桶管理 -->
+    <section id="tab-gas">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">🔥 家用雙桶瓦斯即時狀態</h2>
+          <button class="btn btn-outline btn-sm" id="refreshGasBtn" onclick="loadGas(false)">↻ 同步</button>
+        </div>
+
+        <div id="gasHeroPanel">
+          <div class="empty-state">讀取瓦斯狀態中...</div>
+        </div>
+
+        <div class="grid-3" style="margin-bottom:16px;">
+          <div class="stat-box">
+            <div class="stat-label">距離上次換桶／補貨</div>
+            <div class="stat-value" id="gasDaysSince">-</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">單桶平均使用天數</div>
+            <div class="stat-value text-primary" id="gasAvgDays">-</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">上一桶實際壽命</div>
+            <div class="stat-value" id="gasLastDays">-</div>
+          </div>
+        </div>
+
+        <div id="gasButtonsWrap" style="display:flex; gap:10px; flex-wrap:wrap;"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">🕒 換桶與補貨歷史時間軸</h2>
+        </div>
+        <div id="gasTimelineBox">
+          <div class="empty-state">讀取歷史紀錄中...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 分頁 B：HomeKit 智慧燈泡與設備庫 -->
+    <section id="tab-homekit" class="hidden">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">💡 HomeKit 燈泡與配對碼管理</h2>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-outline btn-sm" id="refreshHkBtn" onclick="loadHomekit(false)">↻ 同步</button>
+            <button class="btn btn-primary btn-sm" onclick="openDeviceModal()">＋ 新增燈泡／設備</button>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+          <div id="roomFilterPills" class="room-pills"></div>
+          <input id="hkSearchInput" class="form-control" style="max-width:240px;" type="search" placeholder="搜尋名稱、型號或配對碼..." oninput="renderHomekitGrid()">
+        </div>
+
+        <div id="homekitGridBox">
+          <div class="empty-state">讀取 HomeKit 設備中...</div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- 彈窗：切換至第 2 桶瓦斯 -->
+<div id="gasSwitchModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <h3>⚠️ 確認已切換至第 2 桶瓦斯</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('gasSwitchModal')">✕</button>
+    </div>
+    <form id="gasSwitchForm">
+      <div class="modal-body">
+        <div class="alert alert-warning">
+          按下確認後，系統會記錄您的換桶時間、將狀態改為<strong>「剩餘 1 桶（無備用）」</strong>，並立即推播提醒全體家人留意叫瓦斯。
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="gasSwitchNote">備註（選填）</label>
+          <input id="gasSwitchNote" class="form-control" type="text" placeholder="例如：剛洗完澡沒瓦斯已切第 2 桶">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('gasSwitchModal')">取消</button>
+        <button type="submit" id="gasSwitchBtn" class="btn btn-warning">確認換桶並通知</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 彈窗：新瓦斯補滿（可同步計入公費） -->
+<div id="gasRefillModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width:440px;">
+    <div class="modal-header">
+      <h3>✅ 確認新瓦斯送達（補滿 2 桶）</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('gasRefillModal')">✕</button>
+    </div>
+    <form id="gasRefillForm">
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="gasRefillNote">備註（選填）</label>
+          <input id="gasRefillNote" class="form-control" type="text" placeholder="例如：欣欣瓦斯送達 2 桶">
+        </div>
+        <div class="form-group" style="margin-bottom:0; padding:12px; background:#f8fafc; border-radius:10px; border:1px solid var(--border);">
+          <label class="checkbox-row" style="margin-bottom:0;">
+            <input type="checkbox" id="gasAddExpenseCheck" onchange="toggleGasExpenseFields()">
+            <span><strong>同步計入本月公費支出</strong>（代墊人記為自己）</span>
+          </label>
+          <div id="gasExpenseFields" class="hidden" style="margin-top:12px;">
+            <div class="grid-2" style="gap:10px;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label for="gasExpenseMonth">所屬月份</label>
+                <input id="gasExpenseMonth" class="form-control" type="text" placeholder="2026.11">
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label for="gasExpenseAmount">瓦斯費用（元）</label>
+                <input id="gasExpenseAmount" class="form-control" type="number" min="1" placeholder="例如 1640">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('gasRefillModal')">取消</button>
+        <button type="submit" id="gasRefillBtn" class="btn btn-success">確認補滿 2 桶</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 彈窗：新增／編輯 HomeKit 設備 -->
+<div id="deviceModal" class="modal-backdrop">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="devModalTitle">＋ 新增 HomeKit 燈泡／設備</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('deviceModal')">✕</button>
+    </div>
+    <form id="deviceForm">
+      <div class="modal-body">
+        <input type="hidden" id="devId">
+        <div class="grid-2" style="gap:10px;">
+          <div class="form-group">
+            <label for="devRoom">所屬空間</label>
+            <input id="devRoom" class="form-control" list="roomSuggestions" required placeholder="例如：客廳、房間 A">
+            <datalist id="roomSuggestions">
+              <option value="客廳">
+              <option value="房間 A">
+              <option value="房間 B">
+              <option value="房間 C">
+              <option value="餐廳">
+              <option value="廚房">
+              <option value="浴室">
+              <option value="陽台">
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label for="devName">HomeKit 顯示名稱</label>
+            <input id="devName" class="form-control" type="text" required placeholder="例如：客廳主燈左">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="devPairingCode">HomeKit 配對碼／ID（重置配對用）</label>
+          <input id="devPairingCode" class="form-control" type="text" placeholder="例如：123-45-678 或 Matter 11 碼">
+        </div>
+        <div class="grid-2" style="gap:10px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="devModel">品牌型號（選填）</label>
+            <input id="devModel" class="form-control" type="text" placeholder="例如：Nanoleaf A19">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="devActiveDate">目前啟用日期</label>
+            <input id="devActiveDate" class="form-control" type="date" required>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('deviceModal')">取消</button>
+        <button type="submit" id="devSubmitBtn" class="btn btn-primary">儲存設備</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 彈窗：紀錄更換新燈泡 -->
+<div id="replaceBulbModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width:440px;">
+    <div class="modal-header">
+      <h3 id="rbModalTitle">🔄 紀錄更換新燈泡</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('replaceBulbModal')">✕</button>
+    </div>
+    <form id="replaceBulbForm">
+      <div class="modal-body">
+        <input type="hidden" id="rbDeviceId">
+        <div id="rbCurrentInfo" class="alert alert-info"></div>
+        <div class="form-group">
+          <label for="rbDate">新燈泡更換日期</label>
+          <input id="rbDate" class="form-control" type="date" required>
+        </div>
+        <div class="form-group">
+          <label for="rbNewCode">新配對碼／ID（若未換新碼可留空沿用原值）</label>
+          <input id="rbNewCode" class="form-control" type="text" placeholder="留空則保留原配對碼">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="rbNewModel">新品牌型號（若同款可留空沿用原值）</label>
+          <input id="rbNewModel" class="form-control" type="text" placeholder="留空則保留原型號">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('replaceBulbModal')">取消</button>
+        <button type="submit" id="rbSubmitBtn" class="btn btn-primary">確認更換並歸檔壽命</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  let gasData = null;
+  let homekitDevices = [];
+  let selectedRoom = 'ALL';
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+  }
+
+  function switchHomeTab(tab) {
+    document.getElementById('tab-gas').classList.toggle('hidden', tab !== 'gas');
+    document.getElementById('tab-homekit').classList.toggle('hidden', tab !== 'homekit');
+    document.getElementById('tabBtnGas').classList.toggle('active', tab === 'gas');
+    document.getElementById('tabBtnHomekit').classList.toggle('active', tab === 'homekit');
+    if (tab === 'homekit' && homekitDevices.length === 0) {
+      loadHomekit(false);
+    }
+  }
+
+  // ==================== 瓦斯桶區塊 ====================
+  function renderGas(data) {
+    gasData = data;
+    const g = data.status || {};
+    const isLow = Number(g.remainingTanks) <= 1;
+
+    document.getElementById('gasHeroPanel').innerHTML = `
+      <div class="gas-status-panel ${isLow ? 'gas-low' : 'gas-full'}">
+        <div>
+          <div style="font-size:1.18rem; font-weight:800;">
+            ${isLow ? '⚠️ 僅剩 1 桶（已切換至備用桶，請留意叫瓦斯）' : '✅ 2 桶滿載（尚有 1 桶備用）'}
+          </div>
+          <div style="font-size:0.86rem; margin-top:4px; opacity:0.9;">
+            最新操作：${App.escapeHtml(g.lastAction || '-')} ｜ 操作人：${App.escapeHtml(g.lastOperator || '-')} ｜ 時間：${App.escapeHtml(g.lastTime || '-')}
+          </div>
+        </div>
+        <span class="badge ${isLow ? 'badge-danger' : 'badge-success'}" style="font-size:0.9rem; padding:5px 12px;">
+          剩餘 ${g.remainingTanks ?? 2} 桶
+        </span>
+      </div>
+    `;
+
+    document.getElementById('gasDaysSince').textContent = (g.daysSinceLastSwitch ?? 0) + ' 天';
+    document.getElementById('gasAvgDays').textContent = g.avgDaysPerTank ? (g.avgDaysPerTank + ' 天') : '累計中';
+    document.getElementById('gasLastDays').textContent = g.lastCompletedTankDays ? (g.lastCompletedTankDays + ' 天') : '-';
+
+    // 依目前狀態突顯主要操作按鈕，同時保留另一顆方便誤觸補救
+    document.getElementById('gasButtonsWrap').innerHTML = isLow
+      ? `
+        <button class="btn btn-success" style="flex:1;" onclick="openGasRefillModal()">✅ 新瓦斯已送達（補滿 2 桶）</button>
+        <button class="btn btn-outline" onclick="openGasSwitchModal()">再次記錄切換備用桶</button>
+      `
+      : `
+        <button class="btn btn-warning" style="flex:1;" onclick="openGasSwitchModal()">⚠️ 我已手動切換至第 2 桶</button>
+        <button class="btn btn-outline" onclick="openGasRefillModal()">補登新瓦斯送達</button>
+      `;
+
+    const logs = data.logs || [];
+    const tlBox = document.getElementById('gasTimelineBox');
+    if (logs.length === 0) {
+      tlBox.innerHTML = `<div class="empty-state">尚無任何瓦斯更換或補貨紀錄。</div>`;
+    } else {
+      tlBox.innerHTML = `
+        <div class="timeline">
+          ${logs.map(l => {
+            const isSwitch = l.actionType === '切換備用桶';
+            return `
+              <div class="tl-item">
+                <span class="tl-dot ${isSwitch ? 'warn' : 'ok'}"></span>
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:4px;">
+                  <div>
+                    <span class="badge ${isSwitch ? 'badge-warning' : 'badge-success'}">${isSwitch ? '🔥 切換備用桶' : '✅ 新瓦斯補滿'}</span>
+                    <strong style="margin-left:6px;">${App.escapeHtml(l.operatorName)}</strong>
+                  </div>
+                  <span class="text-muted" style="font-size:0.82rem;">${App.escapeHtml(l.time)}</span>
+                </div>
+                <div style="font-size:0.86rem;" class="text-muted">
+                  剩餘桶數：<strong>${l.remainingTanks} 桶</strong>
+                  ${l.note ? ` ｜ 備註：${App.escapeHtml(l.note)}` : ''}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+  }
+
+  async function loadGas(isCachedPhase) {
+    const cached = App.getCache('gas_logs');
+    if (cached && isCachedPhase) {
+      renderGas(cached);
+      return;
+    }
+    const btn = document.getElementById('refreshGasBtn');
+    btn.disabled = true;
+    btn.textContent = '同步中...';
+    try {
+      const res = await App.api('gas.getStatusAndLogs', {});
+      App.setCache('gas_logs', res.data);
+      renderGas(res.data);
+    } catch (err) {
+      if (!cached) App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '↻ 同步';
+    }
+  }
+
+  function openGasSwitchModal() {
+    document.getElementById('gasSwitchNote').value = '';
+    document.getElementById('gasSwitchModal').classList.add('open');
+  }
+
+  function openGasRefillModal() {
+    document.getElementById('gasRefillNote').value = '';
+    document.getElementById('gasAddExpenseCheck').checked = false;
+    document.getElementById('gasExpenseFields').classList.add('hidden');
+    document.getElementById('gasExpenseMonth').value = App.getCurrentMonthStr();
+    document.getElementById('gasExpenseAmount').value = '';
+    document.getElementById('gasRefillModal').classList.add('open');
+  }
+
+  function toggleGasExpenseFields() {
+    const checked = document.getElementById('gasAddExpenseCheck').checked;
+    document.getElementById('gasExpenseFields').classList.toggle('hidden', !checked);
+  }
+
+  document.getElementById('gasSwitchForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('gasSwitchBtn');
+    btn.disabled = true;
+    btn.textContent = '記錄中...';
+    try {
+      const res = await App.api('gas.switchBackup', { note: document.getElementById('gasSwitchNote').value.trim() });
+      closeModal('gasSwitchModal');
+      App.toast(res.message, 'success');
+      App.setCache('gas_logs', res.data);
+      renderGas(res.data);
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '確認換桶並通知';
+    }
+  });
+
+  document.getElementById('gasRefillForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('gasRefillBtn');
+    const note = document.getElementById('gasRefillNote').value.trim();
+    const addExp = document.getElementById('gasAddExpenseCheck').checked;
+    const payload = { note };
+
+    if (addExp) {
+      const amount = Number(document.getElementById('gasExpenseAmount').value);
+      const month = document.getElementById('gasExpenseMonth').value.trim();
+      if (!month || !amount || amount <= 0) {
+        return App.toast('請輸入有效的公費月份與瓦斯費用', 'error');
+      }
+      payload.createExpense = {
+        enabled: true,
+        month,
+        item: '叫瓦斯（補滿2桶）',
+        amount,
+        paidByUserId: App.getUser().userId
+      };
+    }
+
+    btn.disabled = true;
+    btn.textContent = '更新中...';
+    try {
+      const res = await App.api('gas.refillFull', payload);
+      closeModal('gasRefillModal');
+      App.toast(res.message, 'success');
+      App.setCache('gas_logs', res.data);
+      renderGas(res.data);
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '確認補滿 2 桶';
+    }
+  });
+
+  // ==================== HomeKit 智慧燈泡庫區塊 ====================
+  function renderRoomPills() {
+    const rooms = Array.from(new Set(homekitDevices.map(d => d.room).filter(Boolean)));
+    if (selectedRoom !== 'ALL' && !rooms.includes(selectedRoom)) {
+      selectedRoom = 'ALL';
+    }
+    const container = document.getElementById('roomFilterPills');
+    container.innerHTML = [
+      `<button class="room-pill ${selectedRoom === 'ALL' ? 'active' : ''}" onclick="selectRoom('ALL')">全部 (${homekitDevices.length})</button>`,
+      ...rooms.map(r => {
+        const cnt = homekitDevices.filter(d => d.room === r).length;
+        return `<button class="room-pill ${selectedRoom === r ? 'active' : ''}" onclick="selectRoom('${App.escapeHtml(r)}')">${App.escapeHtml(r)} (${cnt})</button>`;
+      })
+    ].join('');
+  }
+
+  function selectRoom(room) {
+    selectedRoom = room;
+    renderRoomPills();
+    renderHomekitGrid();
+  }
+
+  function renderHomekitGrid() {
+    const box = document.getElementById('homekitGridBox');
+    const kw = (document.getElementById('hkSearchInput').value || '').trim().toLowerCase();
+    const isAdmin = App.getUser() && App.getUser().role === 'Admin';
+
+    const filtered = homekitDevices.filter(d => {
+      if (selectedRoom !== 'ALL' && d.room !== selectedRoom) return false;
+      if (!kw) return true;
+      return [d.name, d.room, d.model, d.pairingCode].some(v => String(v || '').toLowerCase().includes(kw));
+    });
+
+    if (filtered.length === 0) {
+      box.innerHTML = `<div class="empty-state">找不到符合條件的 HomeKit 設備，點擊右上方「＋ 新增燈泡／設備」建立第一筆資料。</div>`;
+      return;
+    }
+
+    box.innerHTML = `
+      <div class="device-grid">
+        ${filtered.map(d => {
+          const histItems = d.history ? d.history.split('|').map(s => s.trim()).filter(Boolean) : [];
+          return `
+            <div class="device-card">
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px;">
+                  <div>
+                    <span class="badge badge-primary">${App.escapeHtml(d.room)}</span>
+                    <h3 style="margin:6px 0 2px; font-size:1.06rem;">${App.escapeHtml(d.name)}</h3>
+                    <div class="text-muted" style="font-size:0.82rem;">${App.escapeHtml(d.model || '未填寫品牌型號')}</div>
+                  </div>
+                  <span class="badge badge-success">${d.serviceDays !== null ? '已服役 ' + d.serviceDays + ' 天' : '新啟用'}</span>
+                </div>
+
+                <div class="code-box">
+                  <div>
+                    <div style="font-size:0.72rem; color:var(--text-muted);">HomeKit 配對碼 / ID</div>
+                    <div class="code-digits">${App.escapeHtml(d.pairingCode || '未設定')}</div>
+                  </div>
+                  ${d.pairingCode ? `<button class="btn btn-outline btn-sm" onclick="copyPairingCode('${App.escapeHtml(d.pairingCode)}')">📋 複製</button>` : ''}
+                </div>
+
+                <div style="margin-top:10px; font-size:0.83rem;" class="text-muted">
+                  目前啟用日期：<strong>${App.escapeHtml(d.activeDate || '-')}</strong>
+                  ${histItems.length > 0 ? `
+                    <div class="history-chips">
+                      ${histItems.map(h => `<span class="history-chip">舊：${App.escapeHtml(h)}</span>`).join('')}
+                    </div>
+                  ` : ''}
+                </div>
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; border-top:1px solid var(--border); padding-top:10px;">
+                <button class="btn btn-primary btn-sm" onclick="openReplaceBulbModal('${d.deviceId}')">🔄 紀錄換新燈泡</button>
+                <div style="display:flex; gap:4px;">
+                  <button class="btn btn-outline btn-sm" onclick="openDeviceModal('${d.deviceId}')">編輯</button>
+                  ${isAdmin ? `<button class="btn btn-ghost btn-sm text-danger" onclick="handleDeleteDevice('${d.deviceId}', '${App.escapeHtml(d.name)}')">刪除</button>` : ''}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  function copyPairingCode(code) {
+    App.copyText(code, '已複製配對碼：' + code);
+  }
+
+  async function loadHomekit(isCachedPhase) {
+    const cached = App.getCache('homekit_list');
+    if (cached && isCachedPhase) {
+      homekitDevices = cached;
+      renderRoomPills();
+      renderHomekitGrid();
+      return;
+    }
+    const btn = document.getElementById('refreshHkBtn');
+    btn.disabled = true;
+    btn.textContent = '同步中...';
+    try {
+      const res = await App.api('homekit.list', {});
+      homekitDevices = res.data.devices || [];
+      App.setCache('homekit_list', homekitDevices);
+      renderRoomPills();
+      renderHomekitGrid();
+    } catch (err) {
+      if (!cached) App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '↻ 同步';
+    }
+  }
+
+  function openDeviceModal(deviceId = '') {
+    if (deviceId) {
+      const d = homekitDevices.find(x => x.deviceId === deviceId);
+      if (!d) return;
+      document.getElementById('devModalTitle').textContent = '✏️ 編輯 HomeKit 設備';
+      document.getElementById('devId').value = d.deviceId;
+      document.getElementById('devRoom').value = d.room;
+      document.getElementById('devName').value = d.name;
+      document.getElementById('devPairingCode').value = d.pairingCode;
+      document.getElementById('devModel').value = d.model;
+      document.getElementById('devActiveDate').value = d.activeDate || App.getTodayStr();
+    } else {
+      document.getElementById('devModalTitle').textContent = '＋ 新增 HomeKit 燈泡／設備';
+      document.getElementById('deviceForm').reset();
+      document.getElementById('devId').value = '';
+      document.getElementById('devActiveDate').value = App.getTodayStr();
+    }
+    document.getElementById('deviceModal').classList.add('open');
+  }
+
+  document.getElementById('deviceForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('devSubmitBtn');
+    btn.disabled = true;
+    try {
+      const res = await App.api('homekit.saveDevice', {
+        deviceId: document.getElementById('devId').value || undefined,
+        room: document.getElementById('devRoom').value.trim(),
+        name: document.getElementById('devName').value.trim(),
+        pairingCode: document.getElementById('devPairingCode').value.trim(),
+        model: document.getElementById('devModel').value.trim(),
+        activeDate: document.getElementById('devActiveDate').value
+      });
+      closeModal('deviceModal');
+      App.toast(res.message, 'success');
+      await loadHomekit(false);
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  function openReplaceBulbModal(deviceId) {
+    const d = homekitDevices.find(x => x.deviceId === deviceId);
+    if (!d) return;
+    document.getElementById('rbDeviceId').value = deviceId;
+    document.getElementById('rbModalTitle').textContent = `🔄 換新紀錄：${d.name}`;
+    document.getElementById('rbCurrentInfo').innerHTML =
+      `目前燈泡自 <strong>${App.escapeHtml(d.activeDate || '-')}</strong> 啟用（已服役 <strong>${d.serviceDays ?? 0} 天</strong>），儲存後將自動歸檔至歷史更換紀錄。`;
+    document.getElementById('rbDate').value = App.getTodayStr();
+    document.getElementById('rbNewCode').value = '';
+    document.getElementById('rbNewModel').value = '';
+    document.getElementById('replaceBulbModal').classList.add('open');
+  }
+
+  document.getElementById('replaceBulbForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('rbSubmitBtn');
+    btn.disabled = true;
+    try {
+      const res = await App.api('homekit.replaceBulb', {
+        deviceId: document.getElementById('rbDeviceId').value,
+        replaceDate: document.getElementById('rbDate').value,
+        newPairingCode: document.getElementById('rbNewCode').value.trim(),
+        newModel: document.getElementById('rbNewModel').value.trim()
+      });
+      closeModal('replaceBulbModal');
+      App.toast(res.message, 'success');
+      await loadHomekit(false);
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function handleDeleteDevice(deviceId, name) {
+    if (!confirm(`確定要永久刪除設備「${name}」嗎？`)) return;
+    try {
+      const res = await App.api('homekit.deleteDevice', { deviceId });
+      App.toast(res.message, 'success');
+      await loadHomekit(false);
+    } catch (err) {
+      App.toast(err.message, 'error');
+    }
+  }
+
+  App.boot('home', (user, isCachedPhase) => {
+    if (user.status === '待結電費') {
+      document.getElementById('readOnlyNotice').classList.remove('hidden');
+      document.getElementById('homeMainContent').classList.add('hidden');
+      return;
+    }
+    document.getElementById('readOnlyNotice').classList.add('hidden');
+    document.getElementById('homeMainContent').classList.remove('hidden');
+
+    if (location.hash === '#homekit') {
+      switchHomeTab('homekit');
+      loadHomekit(isCachedPhase);
+    } else {
+      loadGas(isCachedPhase);
+      if (!isCachedPhase) loadHomekit(false);
+    }
+  });
+</script>
+</body>
+</html>
