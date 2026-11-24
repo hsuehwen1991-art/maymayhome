@@ -1,6 +1,6 @@
 /**
  * MayMayHome 前端共用核心引擎
- * 負責：GAS API 請求、登入與強制改密彈窗、共用導覽列注入、快取、OneSignal PWA 推播、月份格式統一
+ * 負責：GAS API 請求、登入與強制改密彈窗、iOS Liquid Glass 導覽列與滑動動畫、快取、OneSignal PWA 推播
  */
 
 const App = (() => {
@@ -148,7 +148,7 @@ const App = (() => {
     return json;
   }
 
-  // ==================== 共用殼層（導覽列 + 登入畫面 + 強制改密彈窗） ====================
+  // ==================== 共用殼層（導覽列 + Liquid Glass 滑動控制器 + 登入畫面） ====================
   function injectShell(activePage) {
     const user = getUser();
     const navItems = [
@@ -157,6 +157,7 @@ const App = (() => {
       { id: 'home',     href: 'home.html',     icon: '🔥', label: '居家設備' },
       { id: 'settings', href: 'settings.html', icon: '⚙️', label: '設定' }
     ];
+    const activeIdx = Math.max(0, navItems.findIndex(n => n.id === activePage));
 
     // 頂部導覽列
     const topNav = document.createElement('header');
@@ -176,20 +177,27 @@ const App = (() => {
     `;
     document.body.prepend(topNav);
 
-    // 手機底部導覽列
+    // 手機底部 iOS Liquid Glass 懸浮導覽列
     const bottomNav = document.createElement('nav');
     bottomNav.className = 'bottom-nav';
+    bottomNav.setAttribute('aria-label', '主要功能導覽');
     bottomNav.innerHTML = `
-      <div class="bottom-nav-inner">
-        ${navItems.map(n => `
-          <a href="${n.href}" class="${activePage === n.id ? 'active' : ''}">
-            <span class="nav-ico">${n.icon}</span>
-            <span>${n.label}</span>
-          </a>
-        `).join('')}
+      <div class="bottom-nav-glass">
+        <div class="bottom-nav-inner" style="--nav-index: ${activeIdx};">
+          <div class="bottom-nav-pill" aria-hidden="true">
+            <div class="bottom-nav-pill-inner"></div>
+          </div>
+          ${navItems.map((n, idx) => `
+            <a href="${n.href}" data-nav-idx="${idx}" class="${idx === activeIdx ? 'active' : ''}">
+              <span class="nav-ico">${n.icon}</span>
+              <span>${n.label}</span>
+            </a>
+          `).join('')}
+        </div>
       </div>
     `;
     document.body.appendChild(bottomNav);
+    initLiquidBottomNav(bottomNav, activeIdx);
 
     // 登入全螢幕遮罩（方案 B：16:9 貓咪主視覺）
     const loginDiv = document.createElement('div');
@@ -256,6 +264,90 @@ const App = (() => {
     document.body.appendChild(forcePwdDiv);
 
     bindShellEvents();
+  }
+
+  function initLiquidBottomNav(bottomNav, activeIdx) {
+    const inner = bottomNav.querySelector('.bottom-nav-inner');
+    const pill = bottomNav.querySelector('.bottom-nav-pill');
+    const links = Array.from(bottomNav.querySelectorAll('a[data-nav-idx]'));
+    if (!inner || !pill) return;
+
+    let isNavigating = false;
+
+    function setNavState(idx, animate) {
+      if (!animate) {
+        pill.classList.add('no-transition');
+        inner.style.setProperty('--nav-index', String(idx));
+        void pill.offsetWidth;
+        pill.classList.remove('no-transition');
+      } else {
+        pill.classList.remove('is-sliding');
+        void pill.offsetWidth;
+        pill.classList.add('is-sliding');
+        inner.style.setProperty('--nav-index', String(idx));
+      }
+      links.forEach((a, i) => a.classList.toggle('active', i === idx));
+    }
+
+    // 處理「頁面內按鈕跳轉（如首頁點完整帳單）」抵達時的跨頁補間滑動
+    try {
+      const settled = sessionStorage.getItem('mmh_nav_settled');
+      const prevRaw = sessionStorage.getItem('mmh_prev_nav_idx');
+      sessionStorage.removeItem('mmh_nav_settled');
+      sessionStorage.setItem('mmh_prev_nav_idx', String(activeIdx));
+
+      const prevIdx = prevRaw !== null ? Number(prevRaw) : activeIdx;
+      if (settled !== String(activeIdx) && !isNaN(prevIdx) && prevIdx !== activeIdx) {
+        setNavState(prevIdx, false);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => setNavState(activeIdx, true));
+        });
+      }
+    } catch {}
+
+    // 點擊導覽列時先執行動態滑動膠囊動畫再切換頁面
+    links.forEach(link => {
+      link.addEventListener('click', (e) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+
+        const targetIdx = Number(link.dataset.navIdx);
+        const href = link.getAttribute('href');
+        if (!href) return;
+
+        e.preventDefault();
+
+        // 點擊目前分頁：輕微液態回彈並平滑回頂部
+        if (targetIdx === activeIdx) {
+          pill.classList.remove('is-sliding');
+          void pill.offsetWidth;
+          pill.classList.add('is-sliding');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+
+        if (isNavigating) return;
+        isNavigating = true;
+
+        setNavState(targetIdx, true);
+        try {
+          sessionStorage.setItem('mmh_nav_settled', String(targetIdx));
+          sessionStorage.setItem('mmh_prev_nav_idx', String(targetIdx));
+        } catch {}
+
+        setTimeout(() => {
+          window.location.href = href;
+        }, 210);
+      });
+    });
+
+    // 避免 iOS Safari 上一頁快取（bfcache）導致高亮停在離開前的位置
+    window.addEventListener('pageshow', (ev) => {
+      if (ev.persisted) {
+        isNavigating = false;
+        setNavState(activeIdx, false);
+        try { sessionStorage.setItem('mmh_prev_nav_idx', String(activeIdx)); } catch {}
+      }
+    });
   }
 
   function bindShellEvents() {
