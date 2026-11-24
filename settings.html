@@ -14,7 +14,7 @@
 <body>
 
 <main class="page-container">
-  <!-- 個人帳號與推播設定（所有成員皆可使用） -->
+  <!-- 個人帳號與推播設定（所有成員皆可使用，唯一推播訂閱入口） -->
   <section class="card">
     <div class="card-header">
       <h2 class="card-title">👤 個人帳號與通知</h2>
@@ -29,7 +29,7 @@
         </div>
         <div class="stat-box" style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
           <div>
-            <div class="stat-label">手機 PWA 即時推播狀態</div>
+            <div class="stat-label">手機 PWA 即時推播狀態（瓦斯／公告／結算）</div>
             <div id="myPushStatusText" style="font-weight:700; font-size:0.92rem;">檢查中...</div>
           </div>
           <button id="myPushBtn" class="btn btn-primary btn-sm" onclick="handleSettingsPush()">開啟推播</button>
@@ -66,7 +66,7 @@
       <button class="tab-btn" onclick="switchAdminTab('archived', this)">📦 封存公告</button>
     </div>
 
-    <!-- Tab 1：總房租與房間比例（即時試算連動） -->
+    <!-- Tab 1：總房租與房間比例（桌面表格 + 手機卡片即時試算連動） -->
     <div id="tab-rooms" class="card">
       <div class="card-header">
         <h2 class="card-title">🏠 總房租與房間比例設定</h2>
@@ -83,15 +83,16 @@
           <label for="roomsSyncMonth">同步更新未結算月份（選填）</label>
           <div style="display:flex; gap:8px; align-items:center;">
             <input type="checkbox" id="roomsSyncCheck" style="width:18px; height:18px; accent-color:var(--primary);">
-            <input id="roomsSyncMonth" class="form-control" type="text" placeholder="例如 2026.11">
+            <input id="roomsSyncMonth" class="form-control" type="text" placeholder="例如 2026.11" oninput="updateRoomsSyncPreview()">
           </div>
-          <div class="form-hint">勾選後，若該月份全體仍為「未結算」，儲存時會同步更新該月帳單房租。</div>
+          <div class="form-hint" id="roomsSyncHint">勾選後，若該月份全體仍為「未結算」，儲存時會同步更新該月帳單房租。</div>
         </div>
       </div>
 
       <div id="rentWarningsBox"></div>
 
-      <div class="table-wrap" style="margin-bottom:16px;">
+      <!-- 電腦版表格 -->
+      <div class="table-wrap desktop-table" style="margin-bottom:16px;">
         <table class="data-table">
           <thead>
             <tr>
@@ -107,6 +108,8 @@
           <tbody id="roomsTableBody"></tbody>
         </table>
       </div>
+      <!-- 手機版卡片 -->
+      <div id="roomsMobileList" class="mobile-cards" style="margin-bottom:16px;"></div>
 
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
         <div id="rentSumSummary" class="text-muted" style="font-size:0.9rem;"></div>
@@ -114,7 +117,7 @@
       </div>
     </div>
 
-    <!-- Tab 2：成員與帳號管理 -->
+    <!-- Tab 2：成員與帳號管理（桌面表格 + 手機卡片） -->
     <div id="tab-accounts" class="card hidden">
       <div class="card-header">
         <h2 class="card-title">👥 家庭成員與帳號管理</h2>
@@ -123,7 +126,8 @@
       <div class="alert alert-info">
         調整成員的「所屬房間」或「帳號狀態（啟用 / 待結電費 / 停用）」時，系統會自動連動計算同房間所有人的最新房租；設為「待結電費」將不再計入房租對分，僅保留跨月電費結算資格。
       </div>
-      <div class="table-wrap">
+      <!-- 電腦版表格 -->
+      <div class="table-wrap desktop-table">
         <table class="data-table">
           <thead>
             <tr>
@@ -139,15 +143,18 @@
           <tbody id="accountsTableBody"></tbody>
         </table>
       </div>
+      <!-- 手機版卡片 -->
+      <div id="accountsMobileList" class="mobile-cards"></div>
     </div>
 
-    <!-- Tab 3：固定支出模板 -->
+    <!-- Tab 3：固定支出模板（桌面表格 + 手機卡片） -->
     <div id="tab-templates" class="card hidden">
       <div class="card-header">
         <h2 class="card-title">📑 每月固定支出模板</h2>
         <button class="btn btn-primary btn-sm" onclick="openTemplateModal()">＋ 新增模板</button>
       </div>
-      <div class="table-wrap">
+      <!-- 電腦版表格 -->
+      <div class="table-wrap desktop-table">
         <table class="data-table">
           <thead>
             <tr>
@@ -162,6 +169,8 @@
           <tbody id="templatesTableBody"></tbody>
         </table>
       </div>
+      <!-- 手機版卡片 -->
+      <div id="templatesMobileList" class="mobile-cards"></div>
     </div>
 
     <!-- Tab 4：系統推播與排程設定 -->
@@ -443,6 +452,16 @@
     if (tabName === 'archived') loadArchivedAnnouncements();
   }
 
+  function updateRoomsSyncPreview() {
+    const val = document.getElementById('roomsSyncMonth').value.trim();
+    const hint = document.getElementById('roomsSyncHint');
+    if (val) {
+      hint.textContent = `勾選後，若「${App.formatMonth(val)}」全體仍為未結算，儲存時會同步更新該月帳單房租。`;
+    } else {
+      hint.textContent = '勾選後，若該月份全體仍為「未結算」，儲存時會同步更新該月帳單房租。';
+    }
+  }
+
   async function loadAdminSettings() {
     try {
       const res = await App.api('settings.getAll', {});
@@ -457,6 +476,7 @@
 
       document.getElementById('totalRentInput').value = settingsState.totalRent;
       document.getElementById('roomsSyncMonth').value = App.getCurrentMonthStr();
+      updateRoomsSyncPreview();
 
       // 系統設定表單
       document.getElementById('cfgAppUrl').value = d.systemConfig.appUrl || location.origin;
@@ -507,25 +527,55 @@
     return { totalRent, totalWeight, rooms: roomRows, roomRentSum, allocatedSum, warnings };
   }
 
-  // ==================== Tab 1：房間比例表 ====================
+  // ==================== Tab 1：房間比例（桌面表格 + 手機卡片即時連動） ====================
   function renderRoomsTable() {
     const tbody = document.getElementById('roomsTableBody');
+    const mob = document.getElementById('roomsMobileList');
+
     tbody.innerHTML = settingsState.rooms.map((r, idx) => `
       <tr>
-        <td><input class="form-control" style="width:90px;" value="${App.escapeHtml(r.roomId)}" onchange="updateRoomField(${idx}, 'roomId', this.value)"></td>
-        <td><input class="form-control" style="width:120px;" value="${App.escapeHtml(r.name)}" oninput="updateRoomField(${idx}, 'name', this.value)"></td>
-        <td><input class="form-control" style="width:90px;" type="number" min="1" value="${r.weight}" oninput="updateRoomField(${idx}, 'weight', Number(this.value))"></td>
-        <td id="rmRent_${idx}" style="font-weight:700;">-</td>
-        <td id="rmMembers_${idx}">-</td>
-        <td id="rmPerPerson_${idx}" class="text-primary" style="font-weight:800;">-</td>
+        <td><input class="form-control" style="width:90px;" data-room-input="${idx}_roomId" value="${App.escapeHtml(r.roomId)}" onchange="updateRoomField(${idx}, 'roomId', this.value, this)"></td>
+        <td><input class="form-control" style="width:120px;" data-room-input="${idx}_name" value="${App.escapeHtml(r.name)}" oninput="updateRoomField(${idx}, 'name', this.value, this)"></td>
+        <td><input class="form-control" style="width:90px;" type="number" min="1" data-room-input="${idx}_weight" value="${r.weight}" oninput="updateRoomField(${idx}, 'weight', Number(this.value), this)"></td>
+        <td data-rm-rent="${idx}" style="font-weight:700;">-</td>
+        <td data-rm-members="${idx}">-</td>
+        <td data-rm-perperson="${idx}" class="text-primary" style="font-weight:800;">-</td>
         <td><button class="btn btn-ghost btn-sm text-danger" onclick="removeRoomRow(${idx})">刪除</button></td>
       </tr>
     `).join('');
+
+    mob.innerHTML = settingsState.rooms.map((r, idx) => `
+      <div class="m-card">
+        <div class="m-card-top" style="align-items:center;">
+          <input class="form-control" style="flex:1; font-weight:700;" data-room-input="${idx}_name" value="${App.escapeHtml(r.name)}" placeholder="房間名稱" oninput="updateRoomField(${idx}, 'name', this.value, this)">
+          <button class="btn btn-ghost btn-sm text-danger" onclick="removeRoomRow(${idx})">刪除</button>
+        </div>
+        <div class="room-card-inputs">
+          <div>
+            <label style="display:block; font-size:0.78rem; color:var(--text-muted); margin-bottom:4px;">房間 ID</label>
+            <input class="form-control" data-room-input="${idx}_roomId" value="${App.escapeHtml(r.roomId)}" onchange="updateRoomField(${idx}, 'roomId', this.value, this)">
+          </div>
+          <div>
+            <label style="display:block; font-size:0.78rem; color:var(--text-muted); margin-bottom:4px;">比例權重</label>
+            <input class="form-control" type="number" min="1" data-room-input="${idx}_weight" value="${r.weight}" oninput="updateRoomField(${idx}, 'weight', Number(this.value), this)">
+          </div>
+        </div>
+        <div class="m-card-meta" style="margin-bottom:0;">
+          <div>房間月租：<strong data-rm-rent="${idx}">-</strong></div>
+          <div>每人應繳：<strong class="text-primary" data-rm-perperson="${idx}">-</strong></div>
+          <div style="grid-column:1 / -1;">目前啟用住戶：<strong data-rm-members="${idx}">-</strong></div>
+        </div>
+      </div>
+    `).join('');
+
     renderLiveRentPreview();
   }
 
-  function updateRoomField(idx, field, val) {
+  function updateRoomField(idx, field, val, sourceEl) {
     settingsState.rooms[idx][field] = val;
+    document.querySelectorAll(`[data-room-input="${idx}_${field}"]`).forEach(el => {
+      if (el !== sourceEl) el.value = val;
+    });
     renderLiveRentPreview();
   }
 
@@ -547,17 +597,16 @@
     const preview = computeLocalRentPreview(totalRent, settingsState.rooms, settingsState.accounts);
 
     preview.rooms.forEach((r, idx) => {
-      const rentEl = document.getElementById('rmRent_' + idx);
-      const memEl = document.getElementById('rmMembers_' + idx);
-      const ppEl = document.getElementById('rmPerPerson_' + idx);
-      if (!rentEl) return;
-
       const pct = preview.totalWeight > 0 ? ((r.weight / preview.totalWeight) * 100).toFixed(1) : '0.0';
-      rentEl.textContent = `${App.formatMoney(r.roomRent)} 元 (${pct}%)`;
-      memEl.textContent = r.activeCount > 0
+      const rentText = `${App.formatMoney(r.roomRent)} 元 (${pct}%)`;
+      const memText = r.activeCount > 0
         ? `${r.activeCount} 人（${r.activeMembers.map(m => m.displayName).join('、')}）`
         : '空房 (0 人)';
-      ppEl.textContent = r.activeCount > 0 ? `${App.formatMoney(r.perPersonRent)} 元/人` : '-';
+      const ppText = r.activeCount > 0 ? `${App.formatMoney(r.perPersonRent)} 元/人` : '-';
+
+      document.querySelectorAll(`[data-rm-rent="${idx}"]`).forEach(el => { el.textContent = rentText; });
+      document.querySelectorAll(`[data-rm-members="${idx}"]`).forEach(el => { el.textContent = memText; });
+      document.querySelectorAll(`[data-rm-perperson="${idx}"]`).forEach(el => { el.textContent = ppText; });
     });
 
     const warnBox = document.getElementById('rentWarningsBox');
@@ -584,7 +633,7 @@
       let msg = '總房租與房間比例已儲存';
       if (res.data.syncInfo) {
         msg += res.data.syncInfo.synced
-          ? `（已同步刷新 ${syncMonth} 房租）`
+          ? `（已同步刷新 ${App.formatMonth(syncMonth)} 房租）`
           : '（該月已結算或未開立，未覆蓋舊帳）';
       }
       App.toast(msg, 'success');
@@ -597,13 +646,15 @@
     }
   }
 
-  // ==================== Tab 2：成員與帳號連動 ====================
+  // ==================== Tab 2：成員與帳號（桌面表格 + 手機卡片） ====================
   function renderAccountsTable() {
     const preview = computeLocalRentPreview(settingsState.totalRent, settingsState.rooms, settingsState.accounts);
     const roomMap = {};
     preview.rooms.forEach(r => { roomMap[r.roomId] = r; });
 
     const tbody = document.getElementById('accountsTableBody');
+    const mob = document.getElementById('accountsMobileList');
+
     tbody.innerHTML = settingsState.accounts.map(a => {
       const rm = roomMap[a.roomId];
       const rentVal = (a.status === '啟用' && rm) ? rm.perPersonRent : 0;
@@ -625,6 +676,36 @@
         </tr>
       `;
     }).join('');
+
+    mob.innerHTML = settingsState.accounts.map(a => {
+      const rm = roomMap[a.roomId];
+      const rentVal = (a.status === '啟用' && rm) ? rm.perPersonRent : 0;
+      const statusBadge = a.status === '啟用' ? 'badge-success'
+        : (a.status === '待結電費' ? 'badge-warning' : 'badge-muted');
+
+      return `
+        <div class="m-card">
+          <div class="m-card-top">
+            <div>
+              <strong style="font-size:1.05rem;">${App.escapeHtml(a.displayName)}</strong>
+              <span class="text-muted" style="font-size:0.84rem; margin-left:4px;">@${App.escapeHtml(a.username)}</span>
+            </div>
+            <strong class="${rentVal > 0 ? 'text-primary' : 'text-muted'}" style="font-size:1.02rem;">${App.formatMoney(rentVal)} 元/月</strong>
+          </div>
+          <div class="m-card-meta">
+            <div>所屬房間：<strong>${rm ? App.escapeHtml(rm.name) : App.escapeHtml(a.roomId || '-')}</strong></div>
+            <div>權限角色：<span class="badge ${a.role === 'Admin' ? 'badge-primary' : 'badge-muted'}">${a.role}</span></div>
+          </div>
+          <div class="m-card-actions">
+            <span class="badge ${statusBadge}">${App.escapeHtml(a.status)}</span>
+            <div style="display:flex; gap:6px;">
+              <button class="btn btn-outline btn-sm" onclick="openAccountModal('${a.userId}')">編輯</button>
+              <button class="btn btn-ghost btn-sm" onclick="resetMemberPassword('${a.userId}', '${App.escapeHtml(a.displayName)}')">🔑 重設密碼</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 
   function openAccountModal(userId = '') {
@@ -634,7 +715,7 @@
     ).join('');
 
     const curMonth = App.getCurrentMonthStr();
-    document.getElementById('accSyncMonthLabel').textContent = curMonth;
+    document.getElementById('accSyncMonthLabel').textContent = App.formatMonth(curMonth);
     document.getElementById('accSyncMonthCheck').checked = false;
 
     if (userId) {
@@ -674,7 +755,6 @@
     const status = document.getElementById('accStatus').value;
     const name = document.getElementById('accDisplayName').value.trim() || '此成員';
 
-    // 模擬異動後的帳號清單
     const simAccounts = settingsState.accounts.map(a => ({ ...a }));
     if (mode === 'create') {
       simAccounts.push({ userId: '__NEW__', displayName: name, roomId, status });
@@ -725,7 +805,6 @@
       App.toast(res.message, 'success');
       await loadAdminSettings();
 
-      // 若系統自動產生臨時密碼，顯示歡迎複製彈窗
       if (res.data.tempPassword) {
         showTempPasswordModal(payload.displayName, payload.username, res.data.tempPassword, true);
       }
@@ -749,7 +828,7 @@
   function showTempPasswordModal(displayName, username, tempPwd, isNewMember) {
     const url = settingsState.systemConfig.appUrl || location.origin;
     const msg = isNewMember
-      ? `🐈 歡迎加入 MayMayHome！\n網址：${url}\n帳號：${username}\n臨時密碼：${tempPwd}\n（首次登入後系統會引導設定專屬密碼，建議使用 Safari/Chrome 加入主畫面並開啟通知喔！）`
+      ? `🐈 歡迎加入 MayMayHome！\n網址：${url}\n帳號：${username}\n臨時密碼：${tempPwd}\n（首次登入後系統會引導設定專屬密碼，建議使用 Safari/Chrome 加入主畫面並前往「設定」開啟通知喔！）`
       : `🔑 MayMayHome 密碼已重設\n成員：${displayName}\n帳號：${username}\n臨時密碼：${tempPwd}\n網址：${url}\n（登入後請重新設定您的個人密碼）`;
     document.getElementById('tempPwdMessage').value = msg;
     document.getElementById('tempPwdModal').classList.add('open');
@@ -760,13 +839,17 @@
     App.copyText(msg, '已複製登入資訊，可直接貼給家人！');
   }
 
-  // ==================== Tab 3：固定支出模板 ====================
+  // ==================== Tab 3：固定支出模板（桌面表格 + 手機卡片） ====================
   function renderTemplatesTable() {
     const tbody = document.getElementById('templatesTableBody');
+    const mob = document.getElementById('templatesMobileList');
+
     if (settingsState.templates.length === 0) {
       tbody.innerHTML = `<tr><td colspan="6" class="empty-state">尚未建立固定支出模板（例如網路費、管理費）。</td></tr>`;
+      mob.innerHTML = `<div class="empty-state">尚未建立固定支出模板（例如網路費、管理費）。</div>`;
       return;
     }
+
     tbody.innerHTML = settingsState.templates.map(t => `
       <tr>
         <td><strong>${App.escapeHtml(t.item)}</strong></td>
@@ -779,6 +862,26 @@
           <button class="btn btn-ghost btn-sm text-danger" onclick="deleteTemplate('${t.templateId}')">刪除</button>
         </td>
       </tr>
+    `).join('');
+
+    mob.innerHTML = settingsState.templates.map(t => `
+      <div class="m-card">
+        <div class="m-card-top">
+          <div>
+            <span class="badge ${t.category === '電費' ? 'badge-warning' : 'badge-primary'}">${App.escapeHtml(t.category)}</span>
+            <strong style="margin-left:6px;">${App.escapeHtml(t.item)}</strong>
+          </div>
+          <strong class="text-primary" style="font-size:1.02rem;">${App.formatMoney(t.defaultAmount)} 元</strong>
+        </div>
+        <div class="m-card-meta">
+          <div>預設代墊人：<strong>${App.escapeHtml(t.defaultPaidByName || '無')}</strong></div>
+          <div>狀態：<span class="badge ${t.enabled ? 'badge-success' : 'badge-muted'}">${t.enabled ? '啟用中' : '已停用'}</span></div>
+        </div>
+        <div class="m-card-actions" style="justify-content:flex-end;">
+          <button class="btn btn-outline btn-sm" onclick="openTemplateModal('${t.templateId}')">編輯</button>
+          <button class="btn btn-ghost btn-sm text-danger" onclick="deleteTemplate('${t.templateId}')">刪除</button>
+        </div>
+      </div>
     `).join('');
   }
 
