@@ -159,7 +159,7 @@
   </section>
 
   <!-- 區塊一：成員本月結算與對帳 -->
-  <section class="card">
+  <section class="card" data-sync="finance">
     <div class="card-header">
       <h2 class="card-title">🧾 成員本月結算明細</h2>
       <span id="daysTotalHint" class="text-muted" style="font-size:0.84rem;"></span>
@@ -169,7 +169,7 @@
   </section>
 
   <!-- 區塊二：本月公費與電費支出明細 -->
-  <section class="card">
+  <section class="card" data-sync="finance">
     <div class="card-header">
       <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
         <h2 class="card-title">💸 這個月支出明細</h2>
@@ -681,7 +681,7 @@
     btn.disabled = true;
     btn.textContent = '同步中...';
     try {
-      const res = await App.api('finance.getMonthData', { month });
+      const res = await App.api('finance.getMonthData', { month }, { targets: '#summaryGrid, .card[data-sync="finance"]' });
       App.setCache('finance_' + (res.data.month || 'latest'), res.data);
       if (!month) App.setCache('finance_latest', res.data);
       renderPage(res.data);
@@ -994,6 +994,10 @@
     pendingStatusUpdates++;
     try {
       const res = await App.api('finance.togglePaymentStatus', {
+  settlementId,
+  paymentStatus,
+  notifyMember: paymentStatus === '已繳清'
+}, { sync: 'none' });
         settlementId,
         paymentStatus,
         notifyMember: paymentStatus === '已繳清'
