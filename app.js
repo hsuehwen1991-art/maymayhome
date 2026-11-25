@@ -1,6 +1,6 @@
 /**
  * MayMayHome 前端共用核心引擎
- * 負責：GAS API 請求、登入與強制改密彈窗、iOS Liquid Glass 導覽列與滑動動畫、快取、OneSignal PWA 推播
+ * 負責：GAS API 請求、讀寫分級同步遮罩、登入與強制改密彈窗、iOS Liquid Glass 導覽列與滑動動畫、快取、OneSignal PWA 推播
  */
 
 const App = (() => {
@@ -123,49 +123,251 @@ const App = (() => {
     }
   }
 
+  // ==================== 讀寫分級同步遮罩引擎 ====================
+  // 依後端路由自動決定預設遮罩模式與顯示文案（樂觀更新操作可於呼叫端以 { sync: 'none' } 覆寫）
+  const ACTION_SYNC_RULES = {
+    // 靜默背景（不跳遮罩）
+    'auth.verify':                  { mode: 'none' },
+    'auth.login':                   { mode: 'none' },
+
+    // 讀取型（呼叫端傳入 targets 即啟用卡片局部半透明遮罩）
+    'dashboard.getSummary':         { mode: 'card', text: '同步首頁資料中…' },
+    'announcement.list':            { mode: 'card', text: '同步公告中…' },
+    'finance.getMonthData':         { mode: 'card', text: '同步帳務明細中…' },
+    'home.getSummary':              { mode: 'card', text: '同步居家設備中…' },
+    'gas.getStatusAndLogs':         { mode: 'card', text: '同步瓦斯紀錄中…' },
+    'homekit.list':                 { mode: 'card', text: '同步設備清單中…' },
+    'settings.getAll':              { mode: 'card', text: '同步系統設定中…' },
+
+    // 寫入與高敏感操作（自動啟用全頁毛玻璃鎖定）
+    'auth.changePassword':          { mode: 'global', text: '更新密碼中…' },
+    'auth.resetPassword':           { mode: 'global', text: '重設臨時密碼中…' },
+    'announcement.create':          { mode: 'global', text: '發布公告中…' },
+    'announcement.update':          { mode: 'global', text: '更新公告狀態中…' },
+    'finance.initMonth':            { mode: 'global', text: '建立新月份帳務中…' },
+    'finance.importTemplates':      { mode: 'global', text: '匯入固定支出模板中…' },
+    'finance.addExpense':           { mode: 'global', text: '寫入支出並重算結算中…' },
+    'finance.updateExpense':        { mode: 'global', text: '更新支出並重算結算中…' },
+    'finance.deleteExpense':        { mode: 'global', text: '刪除支出並重算結算中…' },
+    'finance.saveExpensePresets':   { mode: 'global', text: '儲存常用項目中…' },
+    'finance.updateMemberMonth':    { mode: 'global', text: '更新天數並重算公費中…' },
+    'finance.togglePaymentStatus':  { mode: 'global', text: '更新對帳狀態中…' },
+    'finance.sendSettlementNotify': { mode: 'global', text: '結算帳務並推播全員中…' },
+    'finance.sendPaymentReminder':  { mode: 'global', text: '發送繳款提醒推播中…' },
+    'gas.switchBackup':             { mode: 'global', text: '記錄切換備用桶並通知全員中…' },
+    'gas.refillFull':               { mode: 'global', text: '更新補滿紀錄中…' },
+    'homekit.saveDevice':           { mode: 'global', text: '儲存設備資料中…' },
+    'homekit.replaceBulb':          { mode: 'global', text: '歸檔燈泡更換紀錄中…' },
+    'homekit.deleteDevice':         { mode: 'global', text: '刪除設備資料中…' },
+    'settings.saveRentAndRooms':    { mode: 'global', text: '儲存房租與房間比例中…' },
+    'settings.saveAccount':         { mode: 'global', text: '儲存成員帳號資料中…' },
+    'settings.saveTemplate':        { mode: 'global', text: '儲存固定支出模板中…' },
+    'settings.saveSystemConfig':    { mode: 'global', text: '儲存系統設定中…' }
+  };
+
+  const SyncUI = (() => {
+    let globalEl = null;
+    let globalCount = 0;
+    let slowTimer = null;
+    const globalMsgStack = [];
+    const cardStateMap = new WeakMap();
+
+    function ensureGlobalEl() {
+      if (globalEl && document.body.contains(globalEl)) return globalEl;
+      globalEl = document.createElement('div');
+      globalEl.id = 'mmhGlobalLock';
+      globalEl.className = 'mmh-global-lock';
+      globalEl.setAttribute('role', 'status');
+      globalEl.setAttribute('aria-live', 'polite');
+      globalEl.innerHTML = `
+        <div class="mmh-global-lock-card">
+          <div class="mmh-spinner mmh-spinner-lg"></div>
+          <div class="mmh-lock-title" id="mmhLockTitle">處理中…</div>
+          <div class="mmh-lock-sub" id="mmhLockSub">同步至試算表，請勿切換頁面</div>
+        </div>
+      `;
+      document.body.appendChild(globalEl);
+      return globalEl;
+    }
+
+    function lockGlobal(text = '資料寫入中…') {
+      const el = ensureGlobalEl();
+      globalCount++;
+      globalMsgStack.push(text);
+      el.querySelector('#mmhLockTitle').textContent = text;
+
+      if (globalCount === 1) {
+        const sub = el.querySelector('#mmhLockSub');
+        sub.textContent = '同步至試算表，請勿切換頁面';
+        el.classList.add('open');
+        clearTimeout(slowTimer);
+        slowTimer = setTimeout(() => {
+          if (globalCount > 0) {
+            sub.textContent = 'Google 試算表回應較久，請稍候…';
+          }
+        }, 4500);
+      }
+
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        globalCount = Math.max(0, globalCount - 1);
+        const idx = globalMsgStack.lastIndexOf(text);
+        if (idx !== -1) globalMsgStack.splice(idx, 1);
+
+        if (globalCount === 0) {
+          clearTimeout(slowTimer);
+          el.classList.remove('open');
+        } else if (globalMsgStack.length > 0) {
+          el.querySelector('#mmhLockTitle').textContent = globalMsgStack[globalMsgStack.length - 1];
+        }
+      };
+    }
+
+    function resolveElements(targets) {
+      if (!targets) return [];
+      if (typeof targets === 'string') return Array.from(document.querySelectorAll(targets));
+      if (targets instanceof Element) return [targets];
+      if (Array.isArray(targets) || targets instanceof NodeList) {
+        return Array.from(targets).filter(el => el instanceof Element);
+      }
+      return [];
+    }
+
+    function ensureCardMask(hostEl) {
+      hostEl.classList.add('mmh-sync-host');
+      let mask = hostEl.querySelector(':scope > .mmh-card-mask');
+      if (!mask) {
+        mask = document.createElement('div');
+        mask.className = 'mmh-card-mask';
+        mask.innerHTML = `
+          <div class="mmh-sync-pill">
+            <span class="mmh-spinner"></span>
+            <span class="mmh-sync-pill-text">同步中…</span>
+          </div>
+        `;
+        hostEl.appendChild(mask);
+      }
+      return mask;
+    }
+
+    function lockCards(targets, text = '同步中…', delay = 150) {
+      const elements = resolveElements(targets);
+      if (elements.length === 0) return () => {};
+
+      elements.forEach(hostEl => {
+        let st = cardStateMap.get(hostEl);
+        if (!st) {
+          st = { count: 0, timer: null };
+          cardStateMap.set(hostEl, st);
+        }
+        st.count++;
+
+        const mask = ensureCardMask(hostEl);
+        mask.querySelector('.mmh-sync-pill-text').textContent = text;
+
+        if (st.count === 1) {
+          clearTimeout(st.timer);
+          if (delay <= 0) {
+            mask.classList.add('open');
+            hostEl.setAttribute('aria-busy', 'true');
+          } else {
+            st.timer = setTimeout(() => {
+              if (st.count > 0) {
+                mask.classList.add('open');
+                hostEl.setAttribute('aria-busy', 'true');
+              }
+            }, delay);
+          }
+        }
+      });
+
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        elements.forEach(hostEl => {
+          const st = cardStateMap.get(hostEl);
+          if (!st) return;
+          st.count = Math.max(0, st.count - 1);
+          if (st.count === 0) {
+            clearTimeout(st.timer);
+            const mask = hostEl.querySelector(':scope > .mmh-card-mask');
+            if (mask) mask.classList.remove('open');
+            hostEl.removeAttribute('aria-busy');
+          }
+        });
+      };
+    }
+
+    function acquire(action, opts = {}) {
+      const rule = ACTION_SYNC_RULES[action] || { mode: 'none' };
+      const mode = opts.sync || rule.mode;
+      const text = opts.syncText || rule.text || (mode === 'global' ? '資料處理中…' : '同步中…');
+
+      if (mode === 'global') {
+        return lockGlobal(text);
+      }
+      if (mode === 'card' && opts.targets) {
+        const delay = typeof opts.delay === 'number' ? opts.delay : 150;
+        return lockCards(opts.targets, text, delay);
+      }
+      return () => {};
+    }
+
+    return { acquire, lockGlobal, lockCards };
+  })();
+
   // ==================== API 通訊層 ====================
   async function api(action, data = {}, opts = {}) {
     const token = localStorage.getItem(STORAGE.TOKEN) || '';
-    const res = await fetch(GAS_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action, token, data })
-    });
+    const releaseSync = SyncUI.acquire(action, opts);
 
-    if (!res.ok) {
-      throw new Error('網路連線異常（HTTP ' + res.status + '）');
-    }
+    try {
+      const res = await fetch(GAS_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action, token, data })
+      });
 
-    const json = await res.json();
-    if (!json.ok) {
-      if ((json.code === 'UNAUTHORIZED' || json.code === 'ACCOUNT_DISABLED') && !opts.skipAuthRedirect) {
-        clearSession();
-        showLoginScreen(json.message);
+      if (!res.ok) {
+        throw new Error('網路連線異常（HTTP ' + res.status + '）');
       }
-      const err = new Error(json.message || '操作失敗');
-      err.code = json.code;
-      throw err;
-    }
 
-    // 自動接收後端隨業務回應夾帶的 _auth 同步憑證、權限狀態與推播設定
-    if (json._auth) {
-      const prev = getUser();
-      saveAuthState(json._auth);
-      const next = getUser();
-      scheduleOneSignalInit(next);
-      if (next && next.mustResetPassword) {
-        document.getElementById('mmhForcePwdModal').classList.add('open');
+      const json = await res.json();
+      if (!json.ok) {
+        if ((json.code === 'UNAUTHORIZED' || json.code === 'ACCOUNT_DISABLED') && !opts.skipAuthRedirect) {
+          clearSession();
+          showLoginScreen(json.message);
+        }
+        const err = new Error(json.message || '操作失敗');
+        err.code = json.code;
+        throw err;
       }
-      const changed = !prev || !next ||
-        prev.role !== next.role ||
-        prev.status !== next.status ||
-        prev.displayName !== next.displayName;
-      if (changed && next) {
-        window.dispatchEvent(new CustomEvent('mmh:authSynced', { detail: next }));
-      }
-    }
 
-    return json;
+      // 自動接收後端隨業務回應夾帶的 _auth 同步憑證、權限狀態與推播設定
+      if (json._auth) {
+        const prev = getUser();
+        saveAuthState(json._auth);
+        const next = getUser();
+        scheduleOneSignalInit(next);
+        if (next && next.mustResetPassword) {
+          document.getElementById('mmhForcePwdModal').classList.add('open');
+        }
+        const changed = !prev || !next ||
+          prev.role !== next.role ||
+          prev.status !== next.status ||
+          prev.displayName !== next.displayName;
+        if (changed && next) {
+          window.dispatchEvent(new CustomEvent('mmh:authSynced', { detail: next }));
+        }
+      }
+
+      return json;
+    } finally {
+      releaseSync();
+    }
   }
 
   // ==================== 共用殼層（導覽列 + Liquid Glass 滑動控制器 + 登入畫面） ====================
@@ -631,6 +833,7 @@ const App = (() => {
   return {
     boot,
     api,
+    syncUI: SyncUI,
     verifySessionSilently,
     getUser,
     getUiDefaults,
