@@ -332,7 +332,7 @@
     btn.disabled = true;
     btn.textContent = '同步中...';
     try {
-      const res = await App.api('dashboard.getSummary', {});
+      const res = await App.api('dashboard.getSummary', {}, { targets: '.page-container .card' });
       App.setCache('dashboard', res.data);
       renderDashboard(res.data);
     } catch (err) {
@@ -384,7 +384,7 @@
       if (id) {
         const payload = { id, content };
         if (user.role === 'Admin') payload.priority = priority;
-        await App.api('announcement.update', payload);
+        await App.api('announcement.update', payload, { syncText: '儲存公告變更中…' });
         App.toast('公告已更新', 'success');
       } else {
         await App.api('announcement.create', { content, priority, notifyPush });
@@ -411,7 +411,7 @@
     }
 
     try {
-      await App.api('announcement.update', { id, status: '已封存' });
+      await App.api('announcement.update', { id, status: '已封存' }, { sync: 'none' });
       App.toast('公告已封存', 'success');
     } catch (err) {
       if (prevSnapshot) {
