@@ -17,6 +17,7 @@ const App = (() => {
   let currentUser = null;
   let uiDefaults = { notifyOnExpense: false, notifyOnAnnouncement: true };
   let oneSignalInitialized = false;
+  let oneSignalScheduled = false;
   let onReadyCallback = null;
 
   // ==================== 工具函式 ====================
@@ -145,6 +146,25 @@ const App = (() => {
       err.code = json.code;
       throw err;
     }
+
+    // 自動接收後端隨業務回應夾帶的 _auth 同步憑證、權限狀態與推播設定
+    if (json._auth) {
+      const prev = getUser();
+      saveAuthState(json._auth);
+      const next = getUser();
+      scheduleOneSignalInit(next);
+      if (next && next.mustResetPassword) {
+        document.getElementById('mmhForcePwdModal').classList.add('open');
+      }
+      const changed = !prev || !next ||
+        prev.role !== next.role ||
+        prev.status !== next.status ||
+        prev.displayName !== next.displayName;
+      if (changed && next) {
+        window.dispatchEvent(new CustomEvent('mmh:authSynced', { detail: next }));
+      }
+    }
+
     return json;
   }
 
@@ -450,6 +470,21 @@ const App = (() => {
     return isIos && !isStandalone;
   }
 
+  // 延遲初始化 OneSignal，不搶佔首屏渲染與 Liquid Glass 滑動動畫主執行緒
+  function scheduleOneSignalInit(user) {
+    if (oneSignalInitialized || oneSignalScheduled) return;
+    const appId = localStorage.getItem(STORAGE.PUSH_APP_ID);
+    if (!appId || location.protocol === 'file:') return;
+    oneSignalScheduled = true;
+
+    const trigger = () => initOneSignal(user || getUser());
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(trigger, { timeout: 1500 });
+    } else {
+      setTimeout(trigger, 1200);
+    }
+  }
+
   function initOneSignal(user) {
     const appId = localStorage.getItem(STORAGE.PUSH_APP_ID);
     if (!appId || oneSignalInitialized || location.protocol === 'file:') return;
@@ -502,6 +537,12 @@ const App = (() => {
       return false;
     }
     if (!window.OneSignal) {
+      initOneSignal(getUser());
+      for (let i = 0; i < 15 && !window.OneSignal; i++) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+    }
+    if (!window.OneSignal) {
       toast('推播模組載入中，請 2 秒後再點一次', 'info');
       return false;
     }
@@ -526,10 +567,35 @@ const App = (() => {
   }
 
   // ==================== 啟動生命週期 ====================
+  // 供無初始業務 API 的頁面情境（例如一般成員進入設定頁、唯讀帳號進入居家設備頁）背景驗證憑證
+  async function verifySessionSilently() {
+    try {
+      const prev = getUser();
+      const res = await api('auth.verify', {});
+      saveAuthState(res.data);
+      const next = getUser();
+      scheduleOneSignalInit(next);
+      if (next && next.mustResetPassword) {
+        document.getElementById('mmhForcePwdModal').classList.add('open');
+      }
+      const changed = !prev || !next ||
+        prev.role !== next.role ||
+        prev.status !== next.status ||
+        prev.displayName !== next.displayName;
+      if (changed && next) {
+        window.dispatchEvent(new CustomEvent('mmh:authSynced', { detail: next }));
+      }
+    } catch (err) {
+      if (err.code !== 'UNAUTHORIZED' && err.code !== 'ACCOUNT_DISABLED') {
+        console.warn('Silent verify skipped:', err.message);
+      }
+    }
+  }
+
   function handlePostAuth() {
     const user = getUser();
     if (!user) return showLoginScreen();
-    initOneSignal(user);
+    scheduleOneSignalInit(user);
     if (user.mustResetPassword) {
       document.getElementById('mmhForcePwdModal').classList.add('open');
       return;
@@ -537,7 +603,7 @@ const App = (() => {
     if (onReadyCallback) onReadyCallback(user, false);
   }
 
-  async function boot(activePage, onReady) {
+  function boot(activePage, onReady) {
     onReadyCallback = onReady;
     injectShell(activePage);
 
@@ -549,27 +615,23 @@ const App = (() => {
       return;
     }
 
-    // 先用快取使用者資訊秒開畫面（若有快取）
-    if (!cachedUser.mustResetPassword && onReadyCallback) {
-      onReadyCallback(cachedUser, true);
+    scheduleOneSignalInit(cachedUser);
+
+    if (cachedUser.mustResetPassword) {
+      document.getElementById('mmhForcePwdModal').classList.add('open');
+      return;
     }
 
-    // 背景執行滑動續期驗證並同步最新權限/狀態
-    try {
-      const res = await api('auth.verify', {});
-      saveAuthState(res.data);
-      handlePostAuth();
-    } catch (err) {
-      // UNAUTHORIZED / ACCOUNT_DISABLED 已於 api() 自動處理導向登入
-      if (err.code !== 'UNAUTHORIZED' && err.code !== 'ACCOUNT_DISABLED') {
-        toast('離線或連線緩慢，目前顯示快取畫面', 'warning');
-      }
-    }
+    // 1. 立即以 localStorage 快取秒開畫面
+    if (onReadyCallback) onReadyCallback(cachedUser, true);
+    // 2. 不等待額外 auth.verify，直接發起業務 API（後端驗證後夾帶 _auth 回傳）
+    if (onReadyCallback) onReadyCallback(cachedUser, false);
   }
 
   return {
     boot,
     api,
+    verifySessionSilently,
     getUser,
     getUiDefaults,
     getCache,

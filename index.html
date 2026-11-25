@@ -323,8 +323,8 @@
 
   async function loadDashboard(isInitialCachePhase) {
     const cached = App.getCache('dashboard');
-    if (cached && isInitialCachePhase) {
-      renderDashboard(cached);
+    if (isInitialCachePhase) {
+      if (cached) renderDashboard(cached);
       return;
     }
 
@@ -401,12 +401,25 @@
 
   async function archiveAnn(id) {
     if (!confirm('確定要將這則公告封存移出首頁嗎？（封存後仍可在設定頁查閱）')) return;
+
+    // 樂觀更新：立即從首頁移除，若 API 失敗才自動回滾
+    const prevSnapshot = dashData ? JSON.parse(JSON.stringify(dashData)) : null;
+    if (dashData && Array.isArray(dashData.announcements)) {
+      dashData.announcements = dashData.announcements.filter(a => a.id !== id);
+      App.setCache('dashboard', dashData);
+      renderDashboard(dashData);
+    }
+
     try {
       await App.api('announcement.update', { id, status: '已封存' });
       App.toast('公告已封存', 'success');
-      loadDashboard(false);
     } catch (err) {
-      App.toast(err.message, 'error');
+      if (prevSnapshot) {
+        dashData = prevSnapshot;
+        App.setCache('dashboard', prevSnapshot);
+        renderDashboard(prevSnapshot);
+      }
+      App.toast('封存失敗，已還原：' + err.message, 'error');
     }
   }
 
@@ -439,10 +452,16 @@
     btn.disabled = true;
     btn.textContent = '記錄中...';
     try {
-      await App.api('gas.switchBackup', { note });
+      const res = await App.api('gas.switchBackup', { note });
       App.toast('已記錄切換至備用桶並通知全員！', 'success');
       closeModal('gasSwitchModal');
-      loadDashboard(false);
+      if (dashData && res.data && res.data.status) {
+        dashData.gasStatus = res.data.status;
+        App.setCache('dashboard', dashData);
+        renderDashboard(dashData);
+      } else {
+        loadDashboard(false);
+      }
     } catch (err) {
       App.toast(err.message, 'error');
     } finally {
@@ -476,16 +495,27 @@
     btn.disabled = true;
     btn.textContent = '更新中...';
     try {
-      await App.api('gas.refillFull', payload);
+      const res = await App.api('gas.refillFull', payload);
       App.toast('已更新為 2 桶滿載並通知全員！', 'success');
       closeModal('gasRefillModal');
-      loadDashboard(false);
+      if (!addExp && dashData && res.data && res.data.status) {
+        dashData.gasStatus = res.data.status;
+        App.setCache('dashboard', dashData);
+        renderDashboard(dashData);
+      } else {
+        loadDashboard(false);
+      }
     } catch (err) {
       App.toast(err.message, 'error');
     } finally {
       btn.disabled = false;
       btn.textContent = '確認補滿 2 桶';
     }
+  });
+
+  window.addEventListener('mmh:authSynced', (ev) => {
+    renderWelcome(ev.detail);
+    if (dashData) renderDashboard(dashData);
   });
 
   App.boot('index', (user, isCachedPhase) => {

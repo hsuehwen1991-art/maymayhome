@@ -365,17 +365,18 @@
   let gasData = null;
   let homekitDevices = [];
   let selectedRoom = 'ALL';
+  let homeSummaryLoaded = false;
 
   function closeModal(id) {
     document.getElementById(id).classList.remove('open');
   }
 
-  function switchHomeTab(tab) {
+  function switchHomeTab(tab, skipFetch = false) {
     document.getElementById('tab-gas').classList.toggle('hidden', tab !== 'gas');
     document.getElementById('tab-homekit').classList.toggle('hidden', tab !== 'homekit');
     document.getElementById('tabBtnGas').classList.toggle('active', tab === 'gas');
     document.getElementById('tabBtnHomekit').classList.toggle('active', tab === 'homekit');
-    if (tab === 'homekit' && homekitDevices.length === 0) {
+    if (!skipFetch && tab === 'homekit' && !homeSummaryLoaded && homekitDevices.length === 0) {
       loadHomekit(false);
     }
   }
@@ -450,8 +451,8 @@
 
   async function loadGas(isCachedPhase) {
     const cached = App.getCache('gas_logs');
-    if (cached && isCachedPhase) {
-      renderGas(cached);
+    if (isCachedPhase) {
+      if (cached) renderGas(cached);
       return;
     }
     const btn = document.getElementById('refreshGasBtn');
@@ -637,10 +638,12 @@
 
   async function loadHomekit(isCachedPhase) {
     const cached = App.getCache('homekit_list');
-    if (cached && isCachedPhase) {
-      homekitDevices = cached;
-      renderRoomPills();
-      renderHomekitGrid();
+    if (isCachedPhase) {
+      if (cached) {
+        homekitDevices = cached;
+        renderRoomPills();
+        renderHomekitGrid();
+      }
       return;
     }
     const btn = document.getElementById('refreshHkBtn');
@@ -748,22 +751,71 @@
     }
   }
 
+  // 單次聚合查詢：一次取回瓦斯狀態時間軸與 HomeKit 設備清單
+  async function loadHomeSummary(isCachedPhase) {
+    const cachedGas = App.getCache('gas_logs');
+    const cachedHk = App.getCache('homekit_list');
+
+    if (isCachedPhase) {
+      if (cachedGas) renderGas(cachedGas);
+      if (cachedHk) {
+        homekitDevices = cachedHk;
+        renderRoomPills();
+        renderHomekitGrid();
+      }
+      return;
+    }
+
+    const gasBtn = document.getElementById('refreshGasBtn');
+    const hkBtn = document.getElementById('refreshHkBtn');
+    if (gasBtn) { gasBtn.disabled = true; gasBtn.textContent = '同步中...'; }
+    if (hkBtn) { hkBtn.disabled = true; hkBtn.textContent = '同步中...'; }
+
+    try {
+      const res = await App.api('home.getSummary', {});
+      homeSummaryLoaded = true;
+      if (res.data.gas) {
+        App.setCache('gas_logs', res.data.gas);
+        renderGas(res.data.gas);
+      }
+      homekitDevices = res.data.devices || [];
+      App.setCache('homekit_list', homekitDevices);
+      renderRoomPills();
+      renderHomekitGrid();
+    } catch (err) {
+      if (!cachedGas && !cachedHk) App.toast(err.message, 'error');
+    } finally {
+      if (gasBtn) { gasBtn.disabled = false; gasBtn.textContent = '↻ 同步'; }
+      if (hkBtn) { hkBtn.disabled = false; hkBtn.textContent = '↻ 同步'; }
+    }
+  }
+
+  window.addEventListener('mmh:authSynced', (ev) => {
+    const user = ev.detail;
+    if (user.status === '待結電費') {
+      document.getElementById('readOnlyNotice').classList.remove('hidden');
+      document.getElementById('homeMainContent').classList.add('hidden');
+    } else {
+      document.getElementById('readOnlyNotice').classList.add('hidden');
+      document.getElementById('homeMainContent').classList.remove('hidden');
+      if (homekitDevices.length > 0) renderHomekitGrid();
+    }
+  });
+
   App.boot('home', (user, isCachedPhase) => {
     if (user.status === '待結電費') {
       document.getElementById('readOnlyNotice').classList.remove('hidden');
       document.getElementById('homeMainContent').classList.add('hidden');
+      if (!isCachedPhase) App.verifySessionSilently();
       return;
     }
     document.getElementById('readOnlyNotice').classList.add('hidden');
     document.getElementById('homeMainContent').classList.remove('hidden');
 
     if (location.hash === '#homekit') {
-      switchHomeTab('homekit');
-      loadHomekit(isCachedPhase);
-    } else {
-      loadGas(isCachedPhase);
-      if (!isCachedPhase) loadHomekit(false);
+      switchHomeTab('homekit', true);
     }
+    loadHomeSummary(isCachedPhase);
   });
 </script>
 </body>

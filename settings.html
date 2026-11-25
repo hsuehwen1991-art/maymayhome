@@ -463,34 +463,43 @@
     }
   }
 
-  async function loadAdminSettings() {
+  function applyAdminSettingsData(d) {
+    settingsState = {
+      totalRent: d.systemConfig.totalRent,
+      rooms: d.rentPreview.rooms.map(r => ({ roomId: r.roomId, name: r.name, weight: r.weight })),
+      accounts: d.accounts,
+      templates: d.templates,
+      systemConfig: d.systemConfig
+    };
+
+    document.getElementById('totalRentInput').value = settingsState.totalRent;
+    document.getElementById('roomsSyncMonth').value = App.getCurrentMonthStr();
+    updateRoomsSyncPreview();
+
+    // 系統設定表單
+    document.getElementById('cfgAppUrl').value = d.systemConfig.appUrl || location.origin;
+    document.getElementById('cfgAutoDay').value = d.systemConfig.autoSettleDay || 'LAST';
+    document.getElementById('cfgAutoTime').value = d.systemConfig.autoSettleTime || '20:00';
+    document.getElementById('cfgNotifyAnn').checked = Boolean(d.systemConfig.notifyOnAnnouncement);
+    document.getElementById('cfgNotifyExp').checked = Boolean(d.systemConfig.notifyOnExpense);
+
+    renderRoomsTable();
+    renderAccountsTable();
+    renderTemplatesTable();
+  }
+
+  async function loadAdminSettings(isCachedPhase = false) {
+    const cached = App.getCache('settings_all');
+    if (isCachedPhase) {
+      if (cached) applyAdminSettingsData(cached);
+      return;
+    }
     try {
       const res = await App.api('settings.getAll', {});
-      const d = res.data;
-      settingsState = {
-        totalRent: d.systemConfig.totalRent,
-        rooms: d.rentPreview.rooms.map(r => ({ roomId: r.roomId, name: r.name, weight: r.weight })),
-        accounts: d.accounts,
-        templates: d.templates,
-        systemConfig: d.systemConfig
-      };
-
-      document.getElementById('totalRentInput').value = settingsState.totalRent;
-      document.getElementById('roomsSyncMonth').value = App.getCurrentMonthStr();
-      updateRoomsSyncPreview();
-
-      // 系統設定表單
-      document.getElementById('cfgAppUrl').value = d.systemConfig.appUrl || location.origin;
-      document.getElementById('cfgAutoDay').value = d.systemConfig.autoSettleDay || 'LAST';
-      document.getElementById('cfgAutoTime').value = d.systemConfig.autoSettleTime || '20:00';
-      document.getElementById('cfgNotifyAnn').checked = Boolean(d.systemConfig.notifyOnAnnouncement);
-      document.getElementById('cfgNotifyExp').checked = Boolean(d.systemConfig.notifyOnExpense);
-
-      renderRoomsTable();
-      renderAccountsTable();
-      renderTemplatesTable();
+      App.setCache('settings_all', res.data);
+      applyAdminSettingsData(res.data);
     } catch (err) {
-      App.toast('讀取設定失敗：' + err.message, 'error');
+      if (!cached) App.toast('讀取設定失敗：' + err.message, 'error');
     }
   }
 
@@ -1023,13 +1032,26 @@
 
   window.addEventListener('mmh:pushReady', updatePersonalPushUI);
 
+  window.addEventListener('mmh:authSynced', (ev) => {
+    const user = ev.detail;
+    renderPersonalSection(user);
+    const adminSec = document.getElementById('adminSection');
+    const wasHidden = adminSec.classList.contains('hidden');
+    const isAdmin = user.role === 'Admin';
+    adminSec.classList.toggle('hidden', !isAdmin);
+    if (isAdmin && wasHidden) {
+      loadAdminSettings(false);
+    }
+  });
+
   App.boot('settings', (user, isCachedPhase) => {
     renderPersonalSection(user);
     if (user.role === 'Admin') {
       document.getElementById('adminSection').classList.remove('hidden');
-      if (!isCachedPhase) loadAdminSettings();
+      loadAdminSettings(isCachedPhase);
     } else {
       document.getElementById('adminSection').classList.add('hidden');
+      if (!isCachedPhase) App.verifySessionSilently();
     }
   });
 </script>

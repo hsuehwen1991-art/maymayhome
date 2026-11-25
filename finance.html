@@ -672,8 +672,8 @@
   async function loadMonthData(month = '', isCachedPhase = false) {
     const cacheKey = month ? ('finance_' + month) : 'finance_latest';
     const cached = App.getCache(cacheKey);
-    if (cached && isCachedPhase) {
-      renderPage(cached);
+    if (isCachedPhase) {
+      if (cached) renderPage(cached);
       return;
     }
 
@@ -973,7 +973,25 @@
     }
   });
 
+  let pendingStatusUpdates = 0;
+
   async function handleChangePaymentStatus(settlementId, paymentStatus) {
+    const target = monthData && monthData.settlements
+      ? monthData.settlements.find(s => s.settlementId === settlementId)
+      : null;
+    const prevStatus = target ? target.paymentStatus : null;
+
+    // 樂觀更新：立即切換下拉色塊、對帳進度與收款人狀態標籤，免等 GAS 回應
+    if (target) {
+      target.paymentStatus = paymentStatus;
+      App.setCache('finance_' + currentMonth, monthData);
+      if (monthData.availableMonths && monthData.availableMonths[0] === currentMonth) {
+        App.setCache('finance_latest', monthData);
+      }
+      renderPage(monthData);
+    }
+
+    pendingStatusUpdates++;
     try {
       const res = await App.api('finance.togglePaymentStatus', {
         settlementId,
@@ -981,10 +999,25 @@
         notifyMember: paymentStatus === '已繳清'
       });
       App.toast(res.message, 'success');
-      renderPage(res.data);
+      // 連續快速切換多位成員時，僅由最後一筆回傳整頁對齊，避免畫面回跳閃爍
+      if (pendingStatusUpdates === 1) {
+        App.setCache('finance_' + res.data.month, res.data);
+        if (res.data.availableMonths && res.data.availableMonths[0] === res.data.month) {
+          App.setCache('finance_latest', res.data);
+        }
+        renderPage(res.data);
+      }
     } catch (err) {
-      App.toast(err.message, 'error');
-      loadMonthData(currentMonth, false);
+      if (target && prevStatus !== null) {
+        target.paymentStatus = prevStatus;
+        App.setCache('finance_' + currentMonth, monthData);
+        renderPage(monthData);
+      } else {
+        loadMonthData(currentMonth, false);
+      }
+      App.toast('狀態更新失敗，已還原：' + err.message, 'error');
+    } finally {
+      pendingStatusUpdates = Math.max(0, pendingStatusUpdates - 1);
     }
   }
 
@@ -1015,6 +1048,10 @@
       App.toast(err.message, 'error');
     }
   }
+
+  window.addEventListener('mmh:authSynced', () => {
+    if (monthData) renderPage(monthData);
+  });
 
   App.boot('finance', (user, isCachedPhase) => {
     loadMonthData(currentMonth, isCachedPhase);
