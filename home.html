@@ -459,7 +459,7 @@
     btn.disabled = true;
     btn.textContent = '同步中...';
     try {
-      const res = await App.api('gas.getStatusAndLogs', {});
+      const res = await App.api('gas.getStatusAndLogs', {}, { targets: '#tab-gas .card' });
       App.setCache('gas_logs', res.data);
       renderGas(res.data);
     } catch (err) {
@@ -650,7 +650,7 @@
     btn.disabled = true;
     btn.textContent = '同步中...';
     try {
-      const res = await App.api('homekit.list', {});
+      const res = await App.api('homekit.list', {}, { targets: '#tab-homekit .card' });
       homekitDevices = res.data.devices || [];
       App.setCache('homekit_list', homekitDevices);
       renderRoomPills();
@@ -772,7 +772,7 @@
     if (hkBtn) { hkBtn.disabled = true; hkBtn.textContent = '同步中...'; }
 
     try {
-      const res = await App.api('home.getSummary', {});
+      const res = await App.api('home.getSummary', {}, { targets: '#tab-gas .card, #tab-homekit .card' });
       homeSummaryLoaded = true;
       if (res.data.gas) {
         App.setCache('gas_logs', res.data.gas);
