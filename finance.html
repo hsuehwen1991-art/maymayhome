@@ -217,7 +217,7 @@
           </div>
           <div class="form-group">
             <label for="expAmount">總金額（元）</label>
-            <input id="expAmount" class="form-control" type="number" min="1" step="1" required placeholder="請輸入正整數">
+            <input id="expAmount" class="form-control" type="number" inputmode="numeric" pattern="[0-9]*" min="1" step="1" required placeholder="請輸入正整數">
           </div>
         </div>
 
@@ -230,7 +230,7 @@
           <select id="expItemSelect" class="form-control" onchange="onExpenseItemSelectChange()"></select>
 
           <div id="expItemCustomWrap" class="hidden" style="margin-top:8px;">
-            <input id="expItemCustom" class="form-control" type="text" placeholder="請輸入自訂項目名稱（例如：11月台電帳單）">
+            <input id="expItemCustom" class="form-control" type="text" placeholder="請輸入自訂項目名稱">
             <label class="checkbox-row" id="expSavePresetRow" style="margin-top:8px;">
               <input type="checkbox" id="expSavePresetCheck">
               <span>加入常用選單（未來免手打）</span>
@@ -251,7 +251,7 @@
         </div>
         <div class="form-group">
           <label for="expNote">備註（選填）</label>
-          <input id="expNote" class="form-control" type="text" placeholder="選填說明">
+          <input id="expNote" class="form-control" type="text">
         </div>
         <div class="form-group" id="expPushGroup" style="margin-bottom:0;">
           <label class="checkbox-row">
@@ -282,7 +282,7 @@
         </div>
         <div class="form-group">
           <label for="newMonthInput">開立月份（輸入 YYYY.MM）</label>
-          <input id="newMonthInput" class="form-control" type="text" required pattern="\d{4}\.\d{2}" placeholder="例如 2026.12" oninput="updateInitMonthPreview()">
+          <input id="newMonthInput" class="form-control" type="text" required pattern="\d{4}\.\d{2}" placeholder="YYYY.MM" oninput="updateInitMonthPreview()">
           <div id="initMonthPreview" class="form-hint"></div>
         </div>
         <div class="form-group" style="margin-bottom:0;">
@@ -312,16 +312,16 @@
         <input type="hidden" id="mmSettlementId">
         <div class="form-group">
           <label for="mmRent">當月自訂房租（元）</label>
-          <input id="mmRent" class="form-control" type="number" min="0" step="1" required>
+          <input id="mmRent" class="form-control" type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" required>
         </div>
         <div class="grid-2" style="gap:10px;">
           <div class="form-group" style="margin-bottom:0;">
             <label for="mmSharedDays">公費分擔天數</label>
-            <input id="mmSharedDays" class="form-control" type="number" min="0" max="62" step="0.5" required>
+            <input id="mmSharedDays" class="form-control" type="number" inputmode="decimal" min="0" max="62" step="0.5" required>
           </div>
           <div class="form-group" style="margin-bottom:0;">
             <label for="mmElecDays">電費分擔天數</label>
-            <input id="mmElecDays" class="form-control" type="number" min="0" max="65" step="0.5" required>
+            <input id="mmElecDays" class="form-control" type="number" inputmode="decimal" min="0" max="65" step="0.5" required>
           </div>
         </div>
         <p class="form-hint" style="margin-top:10px;">

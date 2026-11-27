@@ -1079,3 +1079,576 @@ body:has(.mmh-global-lock.open) {
     transition: none;
   }
 }
+
+/* ==================== v2.0 UI 全面升級樣式 ==================== */
+
+/* ---------- 1. 修正彈窗內 iOS 日期欄位超寬與橫向滑動 ---------- */
+.modal-body {
+  overflow-x: hidden !important;
+  touch-action: pan-y;
+}
+
+.modal-body .form-group,
+.modal-body .grid-2 > *,
+.modal-body .grid-3 > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+input[type="date"].form-control,
+input[type="time"].form-control,
+input[type="month"].form-control {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 41px;
+  box-sizing: border-box;
+  text-align: left;
+  background-color: var(--surface);
+}
+
+input[type="date"].form-control::-webkit-date-and-time-value {
+  text-align: left;
+}
+
+/* ---------- 2. 頂部標題列：三態推播鈴鐺開關 + [i] 使用說明 ---------- */
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.85);
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: transform 0.16s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-icon-btn:active {
+  transform: scale(0.92);
+}
+
+.nav-icon-btn svg {
+  width: 19px;
+  height: 19px;
+  display: block;
+}
+
+/* 灰色：尚未訂閱推播 */
+.nav-bell-btn.state-unsubscribed {
+  color: #64748b;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+/* 綠色：已訂閱且開啟手機推播 */
+.nav-bell-btn.state-enabled {
+  color: #15803d;
+  background: #dcfce7;
+  border-color: #86efac;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.16);
+}
+
+/* 紅色斜線：已訂閱但暫停推播或系統權限封鎖 */
+.nav-bell-btn.state-muted {
+  color: #dc2626;
+  background: #fee2e2;
+  border-color: #fca5a5;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.14);
+}
+
+.nav-info-btn {
+  color: var(--primary);
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.22);
+}
+
+.nav-info-btn:hover {
+  background: rgba(37, 99, 235, 0.15);
+}
+
+@media (max-width: 480px) {
+  .top-nav {
+    padding: 0 12px;
+  }
+  .user-pill {
+    padding: 4px 9px;
+    font-size: 0.8rem;
+    max-width: 92px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .nav-icon-btn {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+/* ---------- 3. App 冷啟動 3 秒貓咪載入畫面 ---------- */
+html:has(.mmh-splash.open),
+body:has(.mmh-splash.open) {
+  overflow: hidden;
+}
+
+.mmh-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 3500;
+  background: linear-gradient(155deg, #f8fbff 0%, #eef5ff 55%, #e6f2ff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.42s ease, visibility 0.42s ease;
+}
+
+.mmh-splash.fade-out {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.mmh-splash-inner {
+  width: 100%;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+}
+
+.mmh-splash-cat {
+  width: 112px;
+  height: 112px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  filter: drop-shadow(0 8px 16px rgba(37, 99, 235, 0.14));
+}
+
+.mmh-splash-brand {
+  font-size: 1.32rem;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.mmh-splash-progress-wrap {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.mmh-splash-bar-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.12);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.mmh-splash-bar-fill {
+  height: 100%;
+  width: 6%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3b82f6 0%, #0ea5e9 55%, #14b8a6 100%);
+  transition: width 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mmh-splash-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.mmh-splash-pct {
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+/* ---------- 4. 全頁寫入鎖定改用貓咪奔跑動畫 ---------- */
+.mmh-lock-cat {
+  width: 78px;
+  height: 78px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  filter: drop-shadow(0 4px 10px rgba(37, 99, 235, 0.14));
+}
+
+/* ---------- 5. 首頁右下角像素貓咪「通知中心」客服 ---------- */
+body.page-index .page-container {
+  padding-bottom: 120px;
+}
+
+@media (max-width: 768px) {
+  body.page-index .page-container {
+    padding-bottom: calc(var(--bottom-nav-height, 68px) + env(safe-area-inset-bottom, 0px) + 126px);
+  }
+}
+
+.cat-concierge-dock {
+  position: fixed;
+  right: 22px;
+  bottom: 24px;
+  z-index: 95;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: none;
+  user-select: none;
+}
+
+@media (max-width: 768px) {
+  .cat-concierge-dock {
+    right: 12px;
+    bottom: calc(var(--bottom-nav-height, 68px) + env(safe-area-inset-bottom, 0px) + 22px);
+  }
+}
+
+.cat-bubble {
+  pointer-events: auto;
+  cursor: pointer;
+  position: relative;
+  margin-bottom: 6px;
+  padding: 7px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.14);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  animation: mmhBubbleFloat 2.4s ease-in-out infinite;
+}
+
+.cat-bubble::after {
+  content: '';
+  position: absolute;
+  right: 24px;
+  bottom: -6px;
+  width: 10px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  border-right: 1px solid rgba(37, 99, 235, 0.2);
+  border-bottom: 1px solid rgba(37, 99, 235, 0.2);
+  transform: rotate(45deg);
+}
+
+.cat-bubble-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+.cat-concierge-btn {
+  pointer-events: auto;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+  width: 82px;
+  height: 82px;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.cat-concierge-btn:hover {
+  transform: translateY(-2px);
+}
+
+.cat-concierge-btn.is-bouncing {
+  animation: mmhCatBounce 0.34s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.cat-sprite {
+  width: 82px;
+  height: 82px;
+  background-image: url('assets/cat-concierge.webp');
+  background-size: 400% 100%;
+  background-repeat: no-repeat;
+  background-position: 0% 0%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  filter: drop-shadow(0 6px 12px rgba(15, 23, 42, 0.18));
+}
+
+@keyframes mmhBubbleFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes mmhCatBounce {
+  0% { transform: scale(1) translateY(0); }
+  45% { transform: scale(1.1) translateY(-7px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+/* ---------- 6. 通知中心彈窗樣式 ---------- */
+.nc-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.nc-section-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  margin: 12px 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nc-section-title:first-child {
+  margin-top: 0;
+}
+
+.nc-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.nc-item.unread {
+  background: #eff6ff;
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+.nc-item.pinned {
+  border-left: 4px solid var(--primary);
+}
+
+.nc-item-clickable {
+  cursor: pointer;
+}
+
+.nc-item-clickable:hover {
+  border-color: var(--primary);
+}
+
+.nc-unread-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  flex-shrink: 0;
+}
+
+.nc-read-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(148, 163, 184, 0.35);
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+/* ---------- 7. 前景推播浮動橫幅 ---------- */
+.mmh-fg-push {
+  position: fixed;
+  top: calc(var(--nav-height, 58px) + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-16px);
+  z-index: 3200;
+  width: calc(100% - 28px);
+  max-width: 440px;
+  padding: 12px 15px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.94);
+  color: #fff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.mmh-fg-push.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.mmh-fg-push-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  margin-bottom: 3px;
+}
+
+.mmh-fg-push-body {
+  font-size: 0.82rem;
+  opacity: 0.9;
+  line-height: 1.45;
+}
+
+/* ---------- 8. Markdown 使用說明書渲染樣式 ---------- */
+.md-guide {
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.md-guide h1 {
+  font-size: 1.25rem;
+  margin: 0 0 10px;
+  color: var(--text);
+}
+
+.md-guide h2 {
+  font-size: 1.04rem;
+  margin: 20px 0 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border);
+  color: var(--primary);
+}
+
+.md-guide h3 {
+  font-size: 0.94rem;
+  margin: 14px 0 6px;
+  color: var(--text);
+}
+
+.md-guide p {
+  margin: 0 0 10px;
+}
+
+.md-guide ul,
+.md-guide ol {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+.md-guide li {
+  margin-bottom: 5px;
+}
+
+.md-guide blockquote {
+  margin: 10px 0 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--primary);
+  background: #f8fafc;
+  border-radius: 0 8px 8px 0;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
+.md-guide hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}
+
+.md-guide code {
+  background: #f1f5f9;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 0.85em;
+  color: #0f172a;
+}
+
+.md-guide .table-wrap {
+  margin: 10px 0 14px;
+}
+
+.md-guide table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.md-guide th,
+.md-guide td {
+  border: 1px solid var(--border);
+  padding: 7px 9px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.md-guide th {
+  background: #f8fafc;
+  font-weight: 700;
+}
+
+/* ---------- 9. 帳號刪除申請與管理員審核橫幅 ---------- */
+.deletion-review-banner {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.deletion-review-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  border-top: 1px dashed #fecaca;
+}
+
+.deletion-review-item:first-of-type {
+  border-top: none;
+  padding-top: 4px;
+}
+
+.danger-zone-box {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #fecaca;
+  background: #fff5f5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}

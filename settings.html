@@ -14,10 +14,10 @@
 <body>
 
 <main class="page-container">
-  <!-- 個人帳號與推播設定（所有成員皆可使用，唯一推播訂閱入口） -->
+  <!-- 個人帳號管理（推播開關已移至頂部標題列） -->
   <section class="card">
     <div class="card-header">
-      <h2 class="card-title">👤 個人帳號與通知</h2>
+      <h2 class="card-title">👤 個人帳號管理</h2>
       <button class="btn btn-outline btn-sm text-danger" onclick="App.logout()">登出帳號</button>
     </div>
 
@@ -27,13 +27,7 @@
           <div class="stat-label">目前登入身份</div>
           <div id="myProfileInfo" style="font-weight:700; font-size:1rem;">讀取中...</div>
         </div>
-        <div class="stat-box" style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-          <div>
-            <div class="stat-label">手機 PWA 即時推播狀態（瓦斯／公告／結算）</div>
-            <div id="myPushStatusText" style="font-weight:700; font-size:0.92rem;">檢查中...</div>
-          </div>
-          <button id="myPushBtn" class="btn btn-primary btn-sm" onclick="handleSettingsPush()">開啟推播</button>
-        </div>
+        <div id="myDeletionZone" class="hidden"></div>
       </div>
 
       <form id="changeMyPwdForm">
@@ -76,14 +70,14 @@
       <div class="grid-2" style="margin-bottom:14px;">
         <div class="form-group" style="margin-bottom:0;">
           <label for="totalRentInput">整戶每月總房租（元）</label>
-          <input id="totalRentInput" class="form-control" type="number" min="1" oninput="renderLiveRentPreview()">
+          <input id="totalRentInput" class="form-control" type="number" inputmode="numeric" pattern="[0-9]*" min="1" step="1" oninput="renderLiveRentPreview()">
           <div class="form-hint">修改總房租或下方比例權重時，所有房間與同房成員分擔將即時試算連動。</div>
         </div>
         <div class="form-group" style="margin-bottom:0;">
           <label for="roomsSyncMonth">同步更新未結算月份（選填）</label>
           <div style="display:flex; gap:8px; align-items:center;">
             <input type="checkbox" id="roomsSyncCheck" style="width:18px; height:18px; accent-color:var(--primary);">
-            <input id="roomsSyncMonth" class="form-control" type="text" placeholder="例如 2026.11" oninput="updateRoomsSyncPreview()">
+            <input id="roomsSyncMonth" class="form-control" type="text" placeholder="YYYY.MM" oninput="updateRoomsSyncPreview()">
           </div>
           <div class="form-hint" id="roomsSyncHint">勾選後，若該月份全體仍為「未結算」，儲存時會同步更新該月帳單房租。</div>
         </div>
@@ -123,6 +117,7 @@
         <h2 class="card-title">👥 家庭成員與帳號管理</h2>
         <button class="btn btn-primary btn-sm" onclick="openAccountModal()">＋ 新增成員</button>
       </div>
+      <div id="pendingDeletionsBox" class="hidden"></div>
       <div class="alert alert-info">
         調整成員的「所屬房間」或「帳號狀態（啟用 / 待結電費 / 停用）」時，系統會自動連動計算同房間所有人的最新房租；設為「待結電費」將不再計入房租對分，僅保留跨月電費結算資格。
       </div>
@@ -182,7 +177,7 @@
       <form id="systemConfigForm">
         <div class="form-group">
           <label for="cfgAppUrl">網站公開網址（APP_URL，推播點擊跳轉用）</label>
-          <input id="cfgAppUrl" class="form-control" type="url" placeholder="https://maymayhome.pages.dev">
+          <input id="cfgAppUrl" class="form-control" type="url" placeholder="請輸入公開網址（尾端不加斜線）">
         </div>
         <div class="grid-2">
           <div class="form-group">
@@ -191,7 +186,7 @@
           </div>
           <div class="form-group">
             <label for="cfgAutoTime">自動推播時段備註</label>
-            <input id="cfgAutoTime" class="form-control" type="text" placeholder="20:00">
+            <input id="cfgAutoTime" class="form-control" type="text" placeholder="HH:mm（24小時制）">
           </div>
         </div>
         <div class="form-group">
@@ -238,11 +233,11 @@
         <div class="grid-2" style="gap:10px;">
           <div class="form-group">
             <label for="accDisplayName">顯示名稱</label>
-            <input id="accDisplayName" class="form-control" type="text" required placeholder="例如：小明">
+            <input id="accDisplayName" class="form-control" type="text" required placeholder="請輸入顯示名稱">
           </div>
           <div class="form-group">
             <label for="accUsername">登入帳號</label>
-            <input id="accUsername" class="form-control" type="text" required placeholder="英文或暱稱">
+            <input id="accUsername" class="form-control" type="text" required placeholder="請輸入登入帳號">
           </div>
         </div>
 
@@ -274,11 +269,11 @@
           </div>
           <div class="form-group">
             <label for="accDefaultDays">預設天數</label>
-            <input id="accDefaultDays" class="form-control" type="number" min="0" max="62" value="30">
+            <input id="accDefaultDays" class="form-control" type="number" inputmode="numeric" pattern="[0-9]*" min="0" max="62" value="30">
           </div>
           <div class="form-group">
             <label for="accSortOrder">排序</label>
-            <input id="accSortOrder" class="form-control" type="number" min="1" value="10">
+            <input id="accSortOrder" class="form-control" type="number" inputmode="numeric" pattern="[0-9]*" min="1" value="10">
           </div>
         </div>
 
@@ -339,7 +334,7 @@
         <input type="hidden" id="tplId">
         <div class="form-group">
           <label for="tplItem">項目名稱</label>
-          <input id="tplItem" class="form-control" type="text" required placeholder="例如：中華電信網路費">
+          <input id="tplItem" class="form-control" type="text" required placeholder="請輸入項目名稱">
         </div>
         <div class="grid-2" style="gap:10px;">
           <div class="form-group">
@@ -351,7 +346,7 @@
           </div>
           <div class="form-group">
             <label for="tplAmount">預設金額（元）</label>
-            <input id="tplAmount" class="form-control" type="number" min="0" required value="0">
+            <input id="tplAmount" class="form-control" type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" required value="0">
           </div>
         </div>
         <div class="form-group">
@@ -373,6 +368,72 @@
   </div>
 </div>
 
+<!-- 彈窗：成員申請刪除帳號 -->
+<div id="requestDeleteModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width:440px;">
+    <div class="modal-header">
+      <h3>🗑️ 申請刪除個人帳號</h3>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('requestDeleteModal')">✕</button>
+    </div>
+    <form id="requestDeleteForm">
+      <div class="modal-body">
+        <div class="alert alert-warning">
+          送出申請後將推播通知管理員進行審核；管理員核准後會移除您的登入帳號（過去的歷史帳務姓名將保留不影響公費明細）。在管理員審核前您隨時可以取消申請。
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="reqDelReason">備註說明（選填）</label>
+          <textarea id="reqDelReason" class="form-control" placeholder="若有搬離日期或帳務備註可填寫於此"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('requestDeleteModal')">取消</button>
+        <button type="submit" id="reqDelSubmitBtn" class="btn btn-danger">確認送出申請</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 彈窗：管理員審核刪除申請／主動刪除成員（含感謝詞推播） -->
+<div id="adminDeleteModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width:480px;">
+    <div class="modal-header">
+      <h3 id="admDelTitle">🗑️ 刪除成員帳號</h3>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('adminDeleteModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="admDelUserId">
+      <input type="hidden" id="admDelMode">
+      <div id="admDelTargetInfo" class="stat-box" style="margin-bottom:12px;"></div>
+      <div id="admDelUnsettledWarn" class="alert alert-warning hidden"></div>
+      <div id="admDelReqNoteBox" class="alert alert-info hidden"></div>
+
+      <div class="form-group">
+        <label for="admDelThankYou">給對方的結算／道別感謝詞（移除前自動推播給對方）</label>
+        <textarea id="admDelThankYou" class="form-control" style="min-height:92px;" placeholder="請輸入要推播給對方的感謝詞"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-row">
+          <input type="checkbox" id="admDelSyncMonthCheck">
+          <span>移除後同步更新 <strong id="admDelSyncMonthLabel"></strong>（未結算）的同房房租</span>
+        </label>
+      </div>
+
+      <div id="admDelRejectWrap" class="hidden" style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--border);">
+        <div class="form-group" style="margin-bottom:8px;">
+          <label for="admDelRejectReason">駁回說明（選填，選擇駁回時將通知對方）</label>
+          <input id="admDelRejectReason" class="form-control" type="text" placeholder="請輸入駁回原因（選填）">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="flex-wrap:wrap;">
+      <button type="button" class="btn btn-outline" onclick="closeModal('adminDeleteModal')">取消</button>
+      <button type="button" id="admDelRejectBtn" class="btn btn-warning hidden" onclick="submitAdminDelete('reject')">駁回申請</button>
+      <button type="button" id="admDelApproveBtn" class="btn btn-danger" onclick="submitAdminDelete('approve')">確認移除並推播感謝詞</button>
+    </div>
+  </div>
+</div>
+
 <script src="app.js"></script>
 <script>
   let settingsState = {
@@ -387,38 +448,79 @@
     document.getElementById(id).classList.remove('open');
   }
 
-  // ==================== 個人資料與推播狀態 ====================
+  // ==================== 個人資料與帳號刪除申請 ====================
   function renderPersonalSection(user) {
     const roleLabel = user.role === 'Admin' ? '管理員 (Admin)' : '一般成員 (Member)';
     document.getElementById('myProfileInfo').textContent = `${user.displayName}（@${user.username}）· ${roleLabel}`;
-    updatePersonalPushUI();
-  }
 
-  function updatePersonalPushUI() {
-    const state = App.getPushState();
-    const txt = document.getElementById('myPushStatusText');
-    const btn = document.getElementById('myPushBtn');
+    const zone = document.getElementById('myDeletionZone');
+    if (user.role === 'Admin') {
+      zone.classList.add('hidden');
+      zone.innerHTML = '';
+      return;
+    }
 
-    if (!state.configured) {
-      txt.textContent = '尚未設定 OneSignal 金鑰';
-      btn.classList.add('hidden');
-    } else if (state.iosNeedInstall) {
-      txt.textContent = 'iPhone 請先「加入主畫面」再開啟';
-      btn.classList.remove('hidden');
-      btn.textContent = '查看方式';
-    } else if (state.granted) {
-      txt.innerHTML = '<span class="text-success">✅ 已開啟並綁定此裝置</span>';
-      btn.classList.add('hidden');
+    zone.classList.remove('hidden');
+    const req = user.deletionRequest;
+    if (req && req.status === 'pending') {
+      zone.innerHTML = `
+        <div class="danger-zone-box">
+          <div>
+            <div style="font-weight:700; font-size:0.9rem; color:#b91c1c;">⏳ 已送出刪除帳號申請</div>
+            <div class="text-muted" style="font-size:0.8rem; margin-top:2px;">
+              申請時間：${App.escapeHtml(req.requestedAt || '-')}（等待管理員審核中）
+            </div>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="cancelMyDeletionRequest()">取消申請</button>
+        </div>
+      `;
+    } else if (user.status === '啟用') {
+      zone.innerHTML = `
+        <div class="danger-zone-box">
+          <div>
+            <div style="font-weight:700; font-size:0.88rem; color:#991b1b;">帳號移除申請</div>
+            <div class="text-muted" style="font-size:0.78rem; margin-top:2px;">若已搬離且帳務結清，可向管理員提出刪除帳號申請。</div>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm text-danger" onclick="openRequestDeleteModal()">🗑️ 申請刪除帳號</button>
+        </div>
+      `;
     } else {
-      txt.innerHTML = '<span class="text-danger">🔕 尚未開啟通知</span>';
-      btn.classList.remove('hidden');
-      btn.textContent = '立即開啟通知';
+      zone.classList.add('hidden');
+      zone.innerHTML = '';
     }
   }
 
-  async function handleSettingsPush() {
-    await App.requestPushPermission();
-    updatePersonalPushUI();
+  function openRequestDeleteModal() {
+    document.getElementById('reqDelReason').value = '';
+    document.getElementById('requestDeleteModal').classList.add('open');
+  }
+
+  document.getElementById('requestDeleteForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('reqDelSubmitBtn');
+    const reason = document.getElementById('reqDelReason').value.trim();
+    btn.disabled = true;
+    try {
+      const res = await App.api('account.requestDeletion', { reason });
+      closeModal('requestDeleteModal');
+      App.toast(res.message, 'success');
+      renderPersonalSection(App.getUser());
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function cancelMyDeletionRequest() {
+    if (!confirm('確定要取消您的刪除帳號申請嗎？')) return;
+    try {
+      const res = await App.api('account.cancelDeletion', {});
+      App.toast(res.message, 'info');
+      renderPersonalSection(App.getUser());
+    } catch (err) {
+      App.toast(err.message, 'error');
+    }
   }
 
   document.getElementById('changeMyPwdForm').addEventListener('submit', async (e) => {
@@ -546,7 +648,7 @@
       <tr>
         <td><input class="form-control" style="width:90px;" data-room-input="${idx}_roomId" value="${App.escapeHtml(r.roomId)}" onchange="updateRoomField(${idx}, 'roomId', this.value, this)"></td>
         <td><input class="form-control" style="width:120px;" data-room-input="${idx}_name" value="${App.escapeHtml(r.name)}" oninput="updateRoomField(${idx}, 'name', this.value, this)"></td>
-        <td><input class="form-control" style="width:90px;" type="number" min="1" data-room-input="${idx}_weight" value="${r.weight}" oninput="updateRoomField(${idx}, 'weight', Number(this.value), this)"></td>
+        <td><input class="form-control" style="width:90px;" type="number" inputmode="numeric" pattern="[0-9]*" min="1" data-room-input="${idx}_weight" value="${r.weight}" oninput="updateRoomField(${idx}, 'weight', Number(this.value), this)"></td>
         <td data-rm-rent="${idx}" style="font-weight:700;">-</td>
         <td data-rm-members="${idx}">-</td>
         <td data-rm-perperson="${idx}" class="text-primary" style="font-weight:800;">-</td>
@@ -567,7 +669,7 @@
           </div>
           <div>
             <label style="display:block; font-size:0.78rem; color:var(--text-muted); margin-bottom:4px;">比例權重</label>
-            <input class="form-control" type="number" min="1" data-room-input="${idx}_weight" value="${r.weight}" oninput="updateRoomField(${idx}, 'weight', Number(this.value), this)">
+            <input class="form-control" type="number" inputmode="numeric" pattern="[0-9]*" min="1" data-room-input="${idx}_weight" value="${r.weight}" oninput="updateRoomField(${idx}, 'weight', Number(this.value), this)">
           </div>
         </div>
         <div class="m-card-meta" style="margin-bottom:0;">
@@ -671,6 +773,35 @@
     const roomMap = {};
     preview.rooms.forEach(r => { roomMap[r.roomId] = r; });
 
+    const me = App.getUser();
+    const pendingBox = document.getElementById('pendingDeletionsBox');
+    const pendingList = settingsState.accounts.filter(a => a.deletionRequest && a.deletionRequest.status === 'pending');
+
+    if (pendingList.length > 0) {
+      pendingBox.classList.remove('hidden');
+      pendingBox.innerHTML = `
+        <div class="deletion-review-banner">
+          <div style="font-weight:800; color:#b91c1c; font-size:0.92rem; margin-bottom:4px;">
+            🗑️ 待審核的帳號刪除申請（${pendingList.length} 筆）
+          </div>
+          ${pendingList.map(a => `
+            <div class="deletion-review-item">
+              <div>
+                <strong>${App.escapeHtml(a.displayName)}</strong>
+                <span class="text-muted" style="font-size:0.82rem;">(@${App.escapeHtml(a.username)} · ${App.escapeHtml(a.deletionRequest.requestedAt || '')})</span>
+                ${a.deletionRequest.reason ? `<div style="font-size:0.82rem; color:#7f1d1d; margin-top:2px;">備註：${App.escapeHtml(a.deletionRequest.reason)}</div>` : ''}
+                ${(a.unsettledBills && a.unsettledBills.length > 0) ? `<div style="font-size:0.78rem; color:#b45309; font-weight:700; margin-top:2px;">⚠️ 尚有 ${a.unsettledBills.length} 筆未結清帳單</div>` : ''}
+              </div>
+              <button type="button" class="btn btn-danger btn-sm" onclick="openAdminDeleteModal('${a.userId}', 'review')">審核處理</button>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } else {
+      pendingBox.classList.add('hidden');
+      pendingBox.innerHTML = '';
+    }
+
     const tbody = document.getElementById('accountsTableBody');
     const mob = document.getElementById('accountsMobileList');
 
@@ -681,10 +812,15 @@
         : (a.status === '待結電費' ? 'badge-warning' : 'badge-muted');
       const pwdBadge = getPwdStatusBadgeHtml(a);
       const lastLoginText = a.lastLoginAt ? App.escapeHtml(a.lastLoginAt) : '尚未登入';
+      const isSelf = me && me.userId === a.userId;
+      const hasPendingDel = Boolean(a.deletionRequest && a.deletionRequest.status === 'pending');
 
       return `
         <tr>
-          <td><strong>${App.escapeHtml(a.displayName)}</strong></td>
+          <td>
+            <strong>${App.escapeHtml(a.displayName)}</strong>
+            ${hasPendingDel ? '<span class="badge badge-danger" style="margin-left:4px;">申請刪除</span>' : ''}
+          </td>
           <td>@${App.escapeHtml(a.username)}</td>
           <td><span class="badge ${a.role === 'Admin' ? 'badge-primary' : 'badge-muted'}">${a.role}</span></td>
           <td>${rm ? App.escapeHtml(rm.name) : App.escapeHtml(a.roomId || '-')}</td>
@@ -695,8 +831,11 @@
           </td>
           <td style="font-weight:700;" class="${rentVal > 0 ? 'text-primary' : 'text-muted'}">${App.formatMoney(rentVal)} 元</td>
           <td>
-            <button class="btn btn-outline btn-sm" onclick="openAccountModal('${a.userId}')">編輯</button>
-            <button class="btn btn-ghost btn-sm" onclick="resetMemberPassword('${a.userId}', '${App.escapeHtml(a.displayName)}')">🔑 重設密碼</button>
+            <div style="display:flex; gap:4px; flex-wrap:wrap;">
+              <button class="btn btn-outline btn-sm" onclick="openAccountModal('${a.userId}')">編輯</button>
+              <button class="btn btn-ghost btn-sm" onclick="resetMemberPassword('${a.userId}', '${App.escapeHtml(a.displayName)}')">🔑 重設密碼</button>
+              ${!isSelf ? `<button class="btn btn-ghost btn-sm text-danger" onclick="openAdminDeleteModal('${a.userId}', '${hasPendingDel ? 'review' : 'direct'}')">${hasPendingDel ? '審核刪除' : '🗑️ 刪除'}</button>` : ''}
+            </div>
           </td>
         </tr>
       `;
@@ -709,6 +848,8 @@
         : (a.status === '待結電費' ? 'badge-warning' : 'badge-muted');
       const pwdBadge = getPwdStatusBadgeHtml(a);
       const lastLoginText = a.lastLoginAt ? App.escapeHtml(a.lastLoginAt) : '尚未登入';
+      const isSelf = me && me.userId === a.userId;
+      const hasPendingDel = Boolean(a.deletionRequest && a.deletionRequest.status === 'pending');
 
       return `
         <div class="m-card">
@@ -716,6 +857,7 @@
             <div>
               <strong style="font-size:1.05rem;">${App.escapeHtml(a.displayName)}</strong>
               <span class="text-muted" style="font-size:0.84rem; margin-left:4px;">@${App.escapeHtml(a.username)}</span>
+              ${hasPendingDel ? '<span class="badge badge-danger" style="margin-left:4px;">申請刪除</span>' : ''}
             </div>
             <strong class="${rentVal > 0 ? 'text-primary' : 'text-muted'}" style="font-size:1.02rem;">${App.formatMoney(rentVal)} 元/月</strong>
           </div>
@@ -727,9 +869,10 @@
           </div>
           <div class="m-card-actions">
             <span class="badge ${statusBadge}">${App.escapeHtml(a.status)}</span>
-            <div style="display:flex; gap:6px;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
               <button class="btn btn-outline btn-sm" onclick="openAccountModal('${a.userId}')">編輯</button>
               <button class="btn btn-ghost btn-sm" onclick="resetMemberPassword('${a.userId}', '${App.escapeHtml(a.displayName)}')">🔑 重設密碼</button>
+              ${!isSelf ? `<button class="btn btn-ghost btn-sm text-danger" onclick="openAdminDeleteModal('${a.userId}', '${hasPendingDel ? 'review' : 'direct'}')">${hasPendingDel ? '審核刪除' : '🗑️ 刪除'}</button>` : ''}
             </div>
           </div>
         </div>
@@ -855,10 +998,107 @@
     }
   }
 
+  function openAdminDeleteModal(userId, mode = 'direct') {
+    const acc = settingsState.accounts.find(a => a.userId === userId);
+    if (!acc) return;
+
+    const isReview = mode === 'review';
+    document.getElementById('admDelUserId').value = acc.userId;
+    document.getElementById('admDelMode').value = isReview ? 'review' : 'direct';
+    document.getElementById('admDelTitle').textContent = isReview
+      ? `🗑️ 審核刪除申請：${acc.displayName}`
+      : `🗑️ 主動移除成員：${acc.displayName}`;
+
+    document.getElementById('admDelTargetInfo').innerHTML = `
+      <div class="stat-label">目標成員帳號</div>
+      <div style="font-weight:700; font-size:0.98rem;">${App.escapeHtml(acc.displayName)}（@${App.escapeHtml(acc.username)}）· ${App.escapeHtml(acc.status)}</div>
+    `;
+
+    const warnEl = document.getElementById('admDelUnsettledWarn');
+    if (acc.unsettledBills && acc.unsettledBills.length > 0) {
+      const billText = acc.unsettledBills
+        .map(b => `${App.formatMonth(b.month)}（${b.paymentStatus} ${App.formatMoney(Math.abs(b.amount))} 元）`)
+        .join('、');
+      warnEl.innerHTML = `⚠️ <strong>帳務提醒：</strong>此成員尚有未結清項目：${App.escapeHtml(billText)}，建議確認款項結清後再移除。`;
+      warnEl.classList.remove('hidden');
+    } else {
+      warnEl.classList.add('hidden');
+    }
+
+    const noteBox = document.getElementById('admDelReqNoteBox');
+    if (isReview && acc.deletionRequest) {
+      noteBox.innerHTML = `申請時間：<strong>${App.escapeHtml(acc.deletionRequest.requestedAt || '-')}</strong>` +
+        (acc.deletionRequest.reason ? `<br>成員備註：${App.escapeHtml(acc.deletionRequest.reason)}` : '');
+      noteBox.classList.remove('hidden');
+    } else {
+      noteBox.classList.add('hidden');
+    }
+
+    document.getElementById('admDelThankYou').value =
+      `感謝 ${acc.displayName} 這段時間在 MayMayHome 的同住與互相照顧！您的帳號已完成移除，祝福未來一切順心平安 🐈💐`;
+
+    const curMonth = App.getCurrentMonthStr();
+    document.getElementById('admDelSyncMonthLabel').textContent = App.formatMonth(curMonth);
+    document.getElementById('admDelSyncMonthCheck').checked = false;
+
+    document.getElementById('admDelRejectReason').value = '';
+    document.getElementById('admDelRejectWrap').classList.toggle('hidden', !isReview);
+    document.getElementById('admDelRejectBtn').classList.toggle('hidden', !isReview);
+    document.getElementById('admDelApproveBtn').textContent = isReview
+      ? '核准移除並推播感謝詞'
+      : '確認移除並推播感謝詞';
+
+    document.getElementById('adminDeleteModal').classList.add('open');
+  }
+
+  async function submitAdminDelete(decision) {
+    const userId = document.getElementById('admDelUserId').value;
+    const mode = document.getElementById('admDelMode').value;
+    const thankYouMessage = document.getElementById('admDelThankYou').value.trim();
+    const rejectReason = document.getElementById('admDelRejectReason').value.trim();
+    const syncCurrentMonth = document.getElementById('admDelSyncMonthCheck').checked ? App.getCurrentMonthStr() : '';
+
+    if (decision === 'approve') {
+      if (!confirm('確定要永久移除此成員帳號並推播感謝詞給對方嗎？（此操作無法復原，但歷史帳務姓名會保留）')) return;
+    }
+
+    const approveBtn = document.getElementById('admDelApproveBtn');
+    const rejectBtn = document.getElementById('admDelRejectBtn');
+    approveBtn.disabled = true;
+    rejectBtn.disabled = true;
+
+    try {
+      let res;
+      if (mode === 'review') {
+        res = await App.api('account.reviewDeletion', {
+          userId,
+          decision,
+          thankYouMessage,
+          rejectReason,
+          syncCurrentMonth
+        });
+      } else {
+        res = await App.api('account.adminDelete', {
+          userId,
+          thankYouMessage,
+          syncCurrentMonth
+        });
+      }
+      closeModal('adminDeleteModal');
+      App.toast(res.message, 'success');
+      await loadAdminSettings();
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      approveBtn.disabled = false;
+      rejectBtn.disabled = false;
+    }
+  }
+
   function showTempPasswordModal(displayName, username, tempPwd, isNewMember) {
     const url = settingsState.systemConfig.appUrl || location.origin;
     const msg = isNewMember
-      ? `🐈 歡迎加入 MayMayHome！\n網址：${url}\n帳號：${username}\n臨時密碼：${tempPwd}\n（首次登入後系統會引導設定專屬密碼，建議使用 Safari/Chrome 加入主畫面並前往「設定」開啟通知喔！）`
+      ? `🐈 歡迎加入 MayMayHome！\n網址：${url}\n帳號：${username}\n臨時密碼：${tempPwd}\n（首次登入後系統會引導設定專屬密碼，建議使用 Safari/Chrome 加入主畫面並點擊右上角鈴鐺開啟通知喔！）`
       : `🔑 MayMayHome 密碼已重設\n成員：${displayName}\n帳號：${username}\n臨時密碼：${tempPwd}\n網址：${url}\n（登入後請重新設定您的個人密碼）`;
     document.getElementById('tempPwdMessage').value = msg;
     document.getElementById('tempPwdModal').classList.add('open');
@@ -1010,7 +1250,7 @@
         <div class="ann-item">
           <div class="ann-meta">
             <div><strong>${App.escapeHtml(a.authorName)}</strong> · ${App.escapeHtml(a.createdAt)}</div>
-            <button class="btn btn-outline btn-sm" onclick="restoreAnnouncement('${a.id}')">還原至首頁</button>
+            <button class="btn btn-outline btn-sm" onclick="restoreAnnouncement('${a.id}')">還原至通知中心</button>
           </div>
           <div class="ann-content">${App.escapeHtml(a.content)}</div>
         </div>
@@ -1022,15 +1262,13 @@
 
   async function restoreAnnouncement(id) {
     try {
-      await App.api('announcement.update', { id, status: '顯示' }, { syncText: '還原公告至首頁中…' });
-      App.toast('公告已還原至首頁顯示', 'success');
+      await App.api('announcement.update', { id, status: '顯示' }, { syncText: '還原公告至通知中心中…' });
+      App.toast('公告已還原至通知中心', 'success');
       loadArchivedAnnouncements();
     } catch (err) {
       App.toast(err.message, 'error');
     }
   }
-
-  window.addEventListener('mmh:pushReady', updatePersonalPushUI);
 
   window.addEventListener('mmh:authSynced', (ev) => {
     const user = ev.detail;
@@ -1048,6 +1286,10 @@
     renderPersonalSection(user);
     if (user.role === 'Admin') {
       document.getElementById('adminSection').classList.remove('hidden');
+      if (location.hash === '#accounts') {
+        const accTabBtn = document.querySelectorAll('.tab-btn')[1];
+        switchAdminTab('accounts', accTabBtn);
+      }
       loadAdminSettings(isCachedPhase);
     } else {
       document.getElementById('adminSection').classList.add('hidden');

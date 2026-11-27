@@ -14,7 +14,7 @@
 <body>
 
 <main class="page-container">
-  <!-- 方案 A：首頁貓咪漸層歡迎卡 -->
+  <!-- 首頁貓咪漸層歡迎卡 -->
   <section class="hero-welcome">
     <img src="assets/maymay-banner.jpg" alt="MayMay Banner" class="hero-welcome-bg" onerror="this.style.display='none'">
     <div class="hero-welcome-overlay"></div>
@@ -53,34 +53,61 @@
       </div>
     </section>
   </div>
+</main>
 
-  <!-- 家庭公告欄 -->
-  <section class="card">
-    <div class="card-header">
-      <h2 class="card-title">📢 家庭公告欄</h2>
-      <div style="display:flex; gap:8px;">
-        <button id="openAddAnnBtn" class="btn btn-primary btn-sm hidden" onclick="openAnnModal()">＋ 發布公告</button>
+<!-- 首頁右下角像素貓咪「通知中心」客服專員 -->
+<div class="cat-concierge-dock" id="catConciergeDock" aria-label="通知中心">
+  <div class="cat-bubble hidden" id="catBubble" onclick="onCatConciergeClick()">
+    <span class="cat-bubble-dot"></span>
+    <span id="catBubbleText">你有 0 則未讀通知</span>
+  </div>
+  <button type="button" class="cat-concierge-btn" id="catConciergeBtn" onclick="onCatConciergeClick()" title="開啟通知中心" aria-label="開啟通知中心">
+    <div class="cat-sprite" id="catSprite"></div>
+  </button>
+</div>
+
+<!-- 彈窗：通知中心（整合家庭公告與系統推播紀錄） -->
+<div id="ncModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width:560px;">
+    <div class="modal-header">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <h3 style="margin:0;">🔔 通知中心</h3>
+        <span id="ncUnreadBadge" class="badge badge-danger hidden">0 則未讀</span>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('ncModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="nc-toolbar">
+        <button id="openAddAnnBtn" type="button" class="btn btn-primary btn-sm hidden" onclick="openAnnModal()">＋ 發布公告</button>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-left:auto;">
+          <button type="button" class="btn btn-outline btn-sm" id="ncMarkAllBtn" onclick="markAllRead()">✓ 全部已讀</button>
+          <button type="button" class="btn btn-ghost btn-sm text-muted" id="ncClearReadBtn" onclick="clearReadNotifications()">🗑️ 清除已讀</button>
+        </div>
+      </div>
+      <div id="ncContentBox">
+        <div class="empty-state">讀取通知中心中...</div>
       </div>
     </div>
-    <div id="announcementsList">
-      <div class="empty-state">讀取公告中...</div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline btn-sm" onclick="loadDashboard(false)">↻ 重新整理</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="closeModal('ncModal')">關閉</button>
     </div>
-  </section>
-</main>
+  </div>
+</div>
 
 <!-- 彈窗：發布／編輯公告 -->
 <div id="annModal" class="modal-backdrop">
   <div class="modal-box">
     <div class="modal-header">
       <h3 id="annModalTitle">📢 發布新公告</h3>
-      <button class="btn btn-ghost btn-sm" onclick="closeModal('annModal')">✕</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('annModal')">✕</button>
     </div>
     <form id="annForm">
       <div class="modal-body">
         <input type="hidden" id="annEditId">
         <div class="form-group">
           <label for="annContent">公告內容</label>
-          <textarea id="annContent" class="form-control" required placeholder="例如：週六早上 9 點清洗水塔，記得先儲水..."></textarea>
+          <textarea id="annContent" class="form-control" required placeholder="請輸入公告內容"></textarea>
         </div>
         <div class="form-group hidden" id="annPriorityGroup">
           <label for="annPriority">重要等級（管理員專屬）</label>
@@ -109,16 +136,16 @@
   <div class="modal-box" style="max-width:420px;">
     <div class="modal-header">
       <h3>⚠️ 確認已切換至第 2 桶瓦斯</h3>
-      <button class="btn btn-ghost btn-sm" onclick="closeModal('gasSwitchModal')">✕</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('gasSwitchModal')">✕</button>
     </div>
     <form id="gasSwitchForm">
       <div class="modal-body">
         <div class="alert alert-warning">
           按下確認後，系統會記錄您的換桶時間、將家裡狀態轉為<strong>「剩餘 1 桶（無備用）」</strong>，並立即推播提醒全體家人留意叫瓦斯。
         </div>
-        <div class="form-group">
+        <div class="form-group" style="margin-bottom:0;">
           <label for="gasSwitchNote">備註（選填）</label>
-          <input id="gasSwitchNote" class="form-control" type="text" placeholder="例如：剛洗到一半沒瓦斯已換好">
+          <input id="gasSwitchNote" class="form-control" type="text">
         </div>
       </div>
       <div class="modal-footer">
@@ -134,15 +161,15 @@
   <div class="modal-box" style="max-width:440px;">
     <div class="modal-header">
       <h3>✅ 確認新瓦斯送達（補滿 2 桶）</h3>
-      <button class="btn btn-ghost btn-sm" onclick="closeModal('gasRefillModal')">✕</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('gasRefillModal')">✕</button>
     </div>
     <form id="gasRefillForm">
       <div class="modal-body">
         <div class="form-group">
           <label for="gasRefillNote">備註（選填）</label>
-          <input id="gasRefillNote" class="form-control" type="text" placeholder="例如：瓦斯行送達 2 桶">
+          <input id="gasRefillNote" class="form-control" type="text">
         </div>
-        <div class="form-group" style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid var(--border);">
+        <div class="form-group" style="margin-bottom:0; padding:12px; background:#f8fafc; border-radius:10px; border:1px solid var(--border);">
           <label class="checkbox-row" style="margin-bottom:0;">
             <input type="checkbox" id="gasAddExpenseCheck" onchange="toggleGasExpenseFields()">
             <span><strong>同步計入本月公費支出</strong>（代墊人記為自己）</span>
@@ -151,11 +178,11 @@
             <div class="grid-2" style="gap:10px;">
               <div class="form-group" style="margin-bottom:0;">
                 <label for="gasExpenseMonth">所屬月份</label>
-                <input id="gasExpenseMonth" class="form-control" type="text" placeholder="2026.11">
+                <input id="gasExpenseMonth" class="form-control" type="text" placeholder="YYYY.MM">
               </div>
               <div class="form-group" style="margin-bottom:0;">
                 <label for="gasExpenseAmount">瓦斯費用（元）</label>
-                <input id="gasExpenseAmount" class="form-control" type="number" min="1" placeholder="例如 1640">
+                <input id="gasExpenseAmount" class="form-control" type="number" inputmode="numeric" pattern="[0-9]*" min="1" step="1" placeholder="請輸入正整數">
               </div>
             </div>
           </div>
@@ -177,6 +204,116 @@
     document.getElementById(id).classList.remove('open');
   }
 
+  // ==================== 像素貓咪通知客服狀態機 ====================
+  const CatConcierge = (() => {
+    const POSITIONS = ['0% 0%', '33.3333% 0%', '66.6667% 0%', '100% 0%'];
+    let timer = null;
+    let subTimers = [];
+    let unreadCount = 0;
+    let isClicking = false;
+
+    function clearAllTimers() {
+      clearTimeout(timer);
+      subTimers.forEach(t => clearTimeout(t));
+      subTimers = [];
+    }
+
+    function setFrame(idx) {
+      const sprite = document.getElementById('catSprite');
+      if (sprite) sprite.style.backgroundPosition = POSITIONS[idx] || POSITIONS[0];
+    }
+
+    function scheduleNext() {
+      clearAllTimers();
+      if (isClicking) return;
+
+      if (unreadCount > 0) {
+        // 有未讀通知：活潑搖尾與舉手招手交替提醒
+        const delay = 1300 + Math.floor(Math.random() * 1400);
+        timer = setTimeout(() => {
+          if (isClicking) return;
+          const r = Math.random();
+          if (r < 0.52) {
+            setFrame(3); // 舉手提醒
+            subTimers.push(setTimeout(() => { setFrame(2); }, 420));
+            subTimers.push(setTimeout(() => { setFrame(0); scheduleNext(); }, 760));
+          } else {
+            setFrame(2); // 連搖兩下尾巴
+            subTimers.push(setTimeout(() => { setFrame(0); }, 230));
+            subTimers.push(setTimeout(() => { setFrame(2); }, 430));
+            subTimers.push(setTimeout(() => { setFrame(0); scheduleNext(); }, 680));
+          }
+        }, delay);
+      } else {
+        // 無未讀：悠閒坐姿＋隨機眨眼／輕搖尾巴
+        const delay = 2200 + Math.floor(Math.random() * 2500);
+        timer = setTimeout(() => {
+          if (isClicking) return;
+          const r = Math.random();
+          if (r < 0.42) {
+            setFrame(1); // 悠閒眨眼
+            subTimers.push(setTimeout(() => { setFrame(0); scheduleNext(); }, 280));
+          } else if (r < 0.78) {
+            setFrame(2); // 輕搖一次尾巴
+            subTimers.push(setTimeout(() => { setFrame(0); scheduleNext(); }, 340));
+          } else {
+            setFrame(2); // 連搖兩次尾巴
+            subTimers.push(setTimeout(() => { setFrame(0); }, 240));
+            subTimers.push(setTimeout(() => { setFrame(2); }, 460));
+            subTimers.push(setTimeout(() => { setFrame(0); scheduleNext(); }, 720));
+          }
+        }, delay);
+      }
+    }
+
+    function setUnread(count) {
+      unreadCount = Math.max(0, Number(count) || 0);
+      const bubble = document.getElementById('catBubble');
+      const bubbleText = document.getElementById('catBubbleText');
+      if (bubble && bubbleText) {
+        if (unreadCount > 0) {
+          bubbleText.textContent = `你有 ${unreadCount} 則未讀通知`;
+          bubble.classList.remove('hidden');
+        } else {
+          bubble.classList.add('hidden');
+        }
+      }
+      if (!isClicking) {
+        setFrame(0);
+        scheduleNext();
+      }
+    }
+
+    function playClickReaction(onComplete) {
+      isClicking = true;
+      clearAllTimers();
+      setFrame(3); // 舉手冒愛心
+      const btn = document.getElementById('catConciergeBtn');
+      if (btn) {
+        btn.classList.remove('is-bouncing');
+        void btn.offsetWidth;
+        btn.classList.add('is-bouncing');
+      }
+      setTimeout(() => {
+        isClicking = false;
+        setFrame(0);
+        scheduleNext();
+        if (typeof onComplete === 'function') onComplete();
+      }, 280);
+    }
+
+    scheduleNext();
+    return { setUnread, playClickReaction };
+  })();
+
+  function onCatConciergeClick() {
+    CatConcierge.playClickReaction(() => {
+      renderNotificationCenter();
+      document.getElementById('ncModal').classList.add('open');
+    });
+  }
+
+  // ==================== 歡迎卡與首頁摘要渲染 ====================
   function renderWelcome(user) {
     document.getElementById('welcomeGreeting').textContent = `嗨，${user.displayName} 👋`;
     const isReadOnly = user.status === '待結電費';
@@ -188,10 +325,9 @@
     badge.textContent = user.role === 'Admin' ? '👑 管理員' : (isReadOnly ? '⚡ 待結電費（唯讀）' : '🏠 家庭成員');
     badge.className = 'badge ' + (user.role === 'Admin' ? 'badge-primary' : (isReadOnly ? 'badge-warning' : 'badge-success'));
 
-    if (!isReadOnly) {
-      document.getElementById('openAddAnnBtn').classList.remove('hidden');
-    } else {
-      document.getElementById('openAddAnnBtn').classList.add('hidden');
+    const addAnnBtn = document.getElementById('openAddAnnBtn');
+    if (addAnnBtn) {
+      addAnnBtn.classList.toggle('hidden', isReadOnly);
     }
   }
 
@@ -290,34 +426,207 @@
       `;
     }
 
-    // 3. 家庭公告清單
-    const listEl = document.getElementById('announcementsList');
+    // 3. 同步更新右下角貓咪未讀數與通知中心彈窗
     const anns = data.announcements || [];
-    if (anns.length === 0) {
-      listEl.innerHTML = `<div class="empty-state">目前沒有最新公告，點擊右上方按鈕發布第一則消息。</div>`;
+    const notifs = data.notifications || [];
+    const computedUnread = anns.filter(a => a.isRead === false).length + notifs.filter(n => !n.read).length;
+    const unread = data.unreadCount !== undefined ? data.unreadCount : computedUnread;
+    CatConcierge.setUnread(unread);
+
+    if (document.getElementById('ncModal').classList.contains('open')) {
+      renderNotificationCenter();
+    }
+  }
+
+  function renderNotificationCenter() {
+    const box = document.getElementById('ncContentBox');
+    const badge = document.getElementById('ncUnreadBadge');
+    const user = App.getUser();
+    const canWrite = user && user.status === '啟用';
+
+    if (!dashData) {
+      box.innerHTML = '<div class="empty-state">讀取通知中心中...</div>';
+      return;
+    }
+
+    const anns = dashData.announcements || [];
+    const notifs = dashData.notifications || [];
+    const unreadAnn = anns.filter(a => a.isRead === false).length;
+    const unreadNotif = notifs.filter(n => !n.read).length;
+    const totalUnread = unreadAnn + unreadNotif;
+
+    if (totalUnread > 0) {
+      badge.textContent = `${totalUnread} 則未讀`;
+      badge.classList.remove('hidden');
     } else {
-      listEl.innerHTML = anns.map(a => {
+      badge.classList.add('hidden');
+    }
+
+    let html = '';
+
+    // 若管理員有待審核的刪除帳號申請，於通知中心最上方顯示醒目提醒
+    if (user && user.role === 'Admin' && dashData.pendingDeletionCount > 0) {
+      html += `
+        <div class="alert alert-warning" style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+          <span>🗑️ 目前有 <strong>${dashData.pendingDeletionCount} 筆</strong> 成員帳號刪除申請等待審核</span>
+          <a href="settings.html#accounts" class="btn btn-warning btn-sm">前往審核 →</a>
+        </div>
+      `;
+    }
+
+    // 區塊一：家庭公告
+    html += `<div class="nc-section-title"><span>📢 家庭公告（${anns.length}）</span>${unreadAnn > 0 ? `<span class="text-primary">${unreadAnn} 則未讀</span>` : ''}</div>`;
+    if (anns.length === 0) {
+      html += `<div class="empty-state" style="padding:18px 10px;">目前沒有家庭公告，點擊上方按鈕即可發布。</div>`;
+    } else {
+      html += anns.map(a => {
         const isPinned = a.priority === '置頂';
+        const isUnread = a.isRead === false;
         const canEdit = canWrite && (user.role === 'Admin' || a.authorId === user.userId);
+        const namesHint = (a.readByNames && a.readByNames.length > 0)
+          ? `已讀 ${a.readCount}${a.activeMemberCount ? '/' + a.activeMemberCount : ''} 人（${App.escapeHtml(a.readByNames.join('、'))}）`
+          : '尚無已讀紀錄';
+
         return `
-          <div class="ann-item ${isPinned ? 'pinned' : ''}">
-            <div class="ann-meta">
-              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                ${isPinned ? '<span class="badge badge-primary">📌 置頂</span>' : '<span class="badge badge-muted">一般</span>'}
+          <div class="nc-item ${isPinned ? 'pinned' : ''} ${isUnread ? 'unread' : ''}">
+            <div class="ann-meta" style="margin-bottom:6px;">
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                ${isUnread ? '<span class="nc-unread-dot" title="未讀"></span>' : ''}
+                ${isPinned ? '<span class="badge badge-primary">📌 置頂</span>' : '<span class="badge badge-muted">公告</span>'}
                 <strong>${App.escapeHtml(a.authorName)}</strong>
-                <span>${App.escapeHtml(a.createdAt)}</span>
+                <span class="text-muted" style="font-size:0.78rem;">${App.escapeHtml(a.createdAt)}</span>
               </div>
               ${canEdit ? `
                 <div style="display:flex; gap:4px;">
-                  <button class="btn btn-ghost btn-sm" onclick="openAnnModal('${a.id}')">編輯</button>
-                  <button class="btn btn-ghost btn-sm text-danger" onclick="archiveAnn('${a.id}')">封存</button>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="openAnnModal('${a.id}')">編輯</button>
+                  <button type="button" class="btn btn-ghost btn-sm text-danger" onclick="archiveAnn('${a.id}')">封存</button>
                 </div>
               ` : ''}
             </div>
             <div class="ann-content">${App.escapeHtml(a.content)}</div>
+            <div class="nc-read-footer">
+              <span>${namesHint}</span>
+              ${isUnread
+                ? `<button type="button" class="btn btn-outline btn-sm" style="padding:2px 8px; font-size:0.76rem;" onclick="markAnnouncementRead('${a.id}')">✓ 標記已讀</button>`
+                : `<span class="text-success" style="font-weight:700;">✓ 我已讀</span>`}
+            </div>
           </div>
         `;
       }).join('');
+    }
+
+    // 區塊二：系統與帳務通知
+    html += `<div class="nc-section-title"><span>🔔 系統與帳務通知（${notifs.length}）</span>${unreadNotif > 0 ? `<span class="text-primary">${unreadNotif} 則未讀</span>` : ''}</div>`;
+    if (notifs.length === 0) {
+      html += `<div class="empty-state" style="padding:18px 10px;">目前沒有系統推播紀錄。</div>`;
+    } else {
+      html += notifs.map(n => {
+        const isUnread = !n.read;
+        return `
+          <div class="nc-item nc-item-clickable ${isUnread ? 'unread' : ''}" onclick="handleClickNotification('${n.id}', '${App.escapeHtml(n.path || '')}')">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+              <div style="display:flex; align-items:center; gap:6px; font-weight:700; font-size:0.9rem;">
+                ${isUnread ? '<span class="nc-unread-dot"></span>' : ''}
+                <span>${App.escapeHtml(n.title)}</span>
+              </div>
+              <span class="badge ${isUnread ? 'badge-primary' : 'badge-muted'}" style="flex-shrink:0;">${isUnread ? '未讀' : '已讀'}</span>
+            </div>
+            <div style="font-size:0.86rem; color:var(--text); margin-top:5px; line-height:1.5;">${App.escapeHtml(n.message)}</div>
+            <div class="text-muted" style="font-size:0.75rem; margin-top:6px; display:flex; justify-content:space-between;">
+              <span>${App.escapeHtml(n.createdAt || '')}</span>
+              ${n.path ? '<span class="text-primary">點擊前往 →</span>' : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    box.innerHTML = html;
+  }
+
+  function applyNotificationCenterUpdate(nc) {
+    if (!dashData || !nc) return;
+    dashData.announcements = nc.announcements || [];
+    dashData.notifications = nc.notifications || [];
+    dashData.unreadCount = nc.unreadCount || 0;
+    dashData.unreadAnnCount = nc.unreadAnnCount || 0;
+    dashData.unreadNotifCount = nc.unreadNotifCount || 0;
+    App.setCache('dashboard', dashData);
+    CatConcierge.setUnread(dashData.unreadCount);
+    renderNotificationCenter();
+  }
+
+  async function markAnnouncementRead(id) {
+    if (dashData && Array.isArray(dashData.announcements)) {
+      const target = dashData.announcements.find(a => a.id === id);
+      const user = App.getUser();
+      if (target && !target.isRead) {
+        target.isRead = true;
+        if (user && !target.readByNames.includes(user.displayName)) {
+          target.readByNames.push(user.displayName);
+          target.readCount = target.readByNames.length;
+        }
+        dashData.unreadCount = Math.max(0, (dashData.unreadCount || 1) - 1);
+        CatConcierge.setUnread(dashData.unreadCount);
+        renderNotificationCenter();
+      }
+    }
+    try {
+      const res = await App.api('announcement.markRead', { id }, { sync: 'none' });
+      applyNotificationCenterUpdate(res.data);
+    } catch (err) {
+      App.toast(err.message, 'error');
+    }
+  }
+
+  async function handleClickNotification(id, path) {
+    const target = dashData && Array.isArray(dashData.notifications)
+      ? dashData.notifications.find(n => n.id === id)
+      : null;
+
+    if (target && !target.read) {
+      target.read = true;
+      dashData.unreadCount = Math.max(0, (dashData.unreadCount || 1) - 1);
+      App.setCache('dashboard', dashData);
+      CatConcierge.setUnread(dashData.unreadCount);
+      renderNotificationCenter();
+      try {
+        const res = await App.api('notification.markRead', { id }, { sync: 'none' });
+        applyNotificationCenterUpdate(res.data);
+      } catch {}
+    }
+
+    if (path && path !== '/index.html' && path !== 'index.html') {
+      closeModal('ncModal');
+      window.location.href = path.replace(/^\//, '');
+    }
+  }
+
+  async function markAllRead() {
+    const btn = document.getElementById('ncMarkAllBtn');
+    btn.disabled = true;
+    try {
+      const res = await App.api('notification.markRead', { all: true }, { sync: 'none' });
+      applyNotificationCenterUpdate(res.data);
+      App.toast('已全部標記為已讀', 'success');
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function clearReadNotifications() {
+    const btn = document.getElementById('ncClearReadBtn');
+    btn.disabled = true;
+    try {
+      const res = await App.api('notification.clearRead', {}, { sync: 'none' });
+      applyNotificationCenterUpdate(res.data);
+      App.toast('已清除所有已讀系統通知', 'success');
+    } catch (err) {
+      App.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
     }
   }
 
@@ -356,7 +665,7 @@
     document.getElementById('annPushGroup').classList.toggle('hidden', isEdit);
 
     if (isEdit && dashData) {
-      const target = dashData.announcements.find(a => a.id === editId);
+      const target = (dashData.announcements || []).find(a => a.id === editId);
       if (target) {
         document.getElementById('annContent').value = target.content;
         document.getElementById('annPriority').value = target.priority;
@@ -391,7 +700,7 @@
         App.toast('公告已發布' + (notifyPush ? '並發送推播' : ''), 'success');
       }
       closeModal('annModal');
-      loadDashboard(false);
+      await loadDashboard(false);
     } catch (err) {
       App.toast(err.message, 'error');
     } finally {
@@ -400,12 +709,13 @@
   });
 
   async function archiveAnn(id) {
-    if (!confirm('確定要將這則公告封存移出首頁嗎？（封存後仍可在設定頁查閱）')) return;
+    if (!confirm('確定要將這則公告封存移出通知中心嗎？（封存後仍可在設定頁查閱）')) return;
 
-    // 樂觀更新：立即從首頁移除，若 API 失敗才自動回滾
     const prevSnapshot = dashData ? JSON.parse(JSON.stringify(dashData)) : null;
     if (dashData && Array.isArray(dashData.announcements)) {
       dashData.announcements = dashData.announcements.filter(a => a.id !== id);
+      dashData.unreadCount = dashData.announcements.filter(a => a.isRead === false).length
+        + (dashData.notifications || []).filter(n => !n.read).length;
       App.setCache('dashboard', dashData);
       renderDashboard(dashData);
     }
@@ -452,16 +762,10 @@
     btn.disabled = true;
     btn.textContent = '記錄中...';
     try {
-      const res = await App.api('gas.switchBackup', { note });
+      await App.api('gas.switchBackup', { note });
       App.toast('已記錄切換至備用桶並通知全員！', 'success');
       closeModal('gasSwitchModal');
-      if (dashData && res.data && res.data.status) {
-        dashData.gasStatus = res.data.status;
-        App.setCache('dashboard', dashData);
-        renderDashboard(dashData);
-      } else {
-        loadDashboard(false);
-      }
+      loadDashboard(false);
     } catch (err) {
       App.toast(err.message, 'error');
     } finally {
@@ -495,16 +799,10 @@
     btn.disabled = true;
     btn.textContent = '更新中...';
     try {
-      const res = await App.api('gas.refillFull', payload);
+      await App.api('gas.refillFull', payload);
       App.toast('已更新為 2 桶滿載並通知全員！', 'success');
       closeModal('gasRefillModal');
-      if (!addExp && dashData && res.data && res.data.status) {
-        dashData.gasStatus = res.data.status;
-        App.setCache('dashboard', dashData);
-        renderDashboard(dashData);
-      } else {
-        loadDashboard(false);
-      }
+      loadDashboard(false);
     } catch (err) {
       App.toast(err.message, 'error');
     } finally {
@@ -513,9 +811,17 @@
     }
   });
 
+  document.getElementById('ncModal').addEventListener('click', (e) => {
+    if (e.target.id === 'ncModal') closeModal('ncModal');
+  });
+
   window.addEventListener('mmh:authSynced', (ev) => {
     renderWelcome(ev.detail);
     if (dashData) renderDashboard(dashData);
+  });
+
+  window.addEventListener('mmh:foregroundPush', () => {
+    loadDashboard(false);
   });
 
   App.boot('index', (user, isCachedPhase) => {

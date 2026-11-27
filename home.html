@@ -224,7 +224,7 @@
         </div>
         <div class="form-group" style="margin-bottom:0;">
           <label for="gasSwitchNote">備註（選填）</label>
-          <input id="gasSwitchNote" class="form-control" type="text" placeholder="例如：剛洗完澡沒瓦斯已切第 2 桶">
+          <input id="gasSwitchNote" class="form-control" type="text">
         </div>
       </div>
       <div class="modal-footer">
@@ -246,7 +246,7 @@
       <div class="modal-body">
         <div class="form-group">
           <label for="gasRefillNote">備註（選填）</label>
-          <input id="gasRefillNote" class="form-control" type="text" placeholder="例如：欣欣瓦斯送達 2 桶">
+          <input id="gasRefillNote" class="form-control" type="text">
         </div>
         <div class="form-group" style="margin-bottom:0; padding:12px; background:#f8fafc; border-radius:10px; border:1px solid var(--border);">
           <label class="checkbox-row" style="margin-bottom:0;">
@@ -257,11 +257,11 @@
             <div class="grid-2" style="gap:10px;">
               <div class="form-group" style="margin-bottom:0;">
                 <label for="gasExpenseMonth">所屬月份</label>
-                <input id="gasExpenseMonth" class="form-control" type="text" placeholder="2026.11">
+                <input id="gasExpenseMonth" class="form-control" type="text" placeholder="YYYY.MM">
               </div>
               <div class="form-group" style="margin-bottom:0;">
                 <label for="gasExpenseAmount">瓦斯費用（元）</label>
-                <input id="gasExpenseAmount" class="form-control" type="number" min="1" placeholder="例如 1640">
+                <input id="gasExpenseAmount" class="form-control" type="number" inputmode="numeric" pattern="[0-9]*" min="1" step="1" placeholder="請輸入正整數">
               </div>
             </div>
           </div>
@@ -288,7 +288,7 @@
         <div class="grid-2" style="gap:10px;">
           <div class="form-group">
             <label for="devRoom">所屬空間</label>
-            <input id="devRoom" class="form-control" list="roomSuggestions" required placeholder="例如：客廳、房間 A">
+            <input id="devRoom" class="form-control" list="roomSuggestions" required placeholder="請選擇或輸入空間名稱">
             <datalist id="roomSuggestions">
               <option value="客廳">
               <option value="房間 A">
@@ -302,17 +302,17 @@
           </div>
           <div class="form-group">
             <label for="devName">HomeKit 顯示名稱</label>
-            <input id="devName" class="form-control" type="text" required placeholder="例如：客廳主燈左">
+            <input id="devName" class="form-control" type="text" required placeholder="請輸入設備名稱">
           </div>
         </div>
         <div class="form-group">
           <label for="devPairingCode">HomeKit 配對碼／ID（重置配對用）</label>
-          <input id="devPairingCode" class="form-control" type="text" placeholder="例如：123-45-678 或 Matter 11 碼">
+          <input id="devPairingCode" class="form-control" type="text" placeholder="8 碼或 11 碼配對碼">
         </div>
         <div class="grid-2" style="gap:10px;">
           <div class="form-group" style="margin-bottom:0;">
             <label for="devModel">品牌型號（選填）</label>
-            <input id="devModel" class="form-control" type="text" placeholder="例如：Nanoleaf A19">
+            <input id="devModel" class="form-control" type="text">
           </div>
           <div class="form-group" style="margin-bottom:0;">
             <label for="devActiveDate">目前啟用日期</label>
