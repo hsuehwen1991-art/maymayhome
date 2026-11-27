@@ -4,8 +4,14 @@
  */
 
 const App = (() => {
-  // 已綁定你階段一部署成功的 GAS Web App 網址
-  const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbxAzHiiXa0BKcQa-13GNlDY35aQqJAQ2wK1yTGT9LTjyhWI6gDY1cPgmB3O9fwEh8_d/exec';
+  // Firebase Firestore 雲端後端動態載入器（無需更改 HTML <script> 標籤即可載入 ES Module）
+  let backendPromise = null;
+  function getBackend() {
+    if (!backendPromise) {
+      backendPromise = import('./firebase-backend.js');
+    }
+    return backendPromise;
+  }
 
   const STORAGE = {
     TOKEN: 'mmh_token',
@@ -183,7 +189,7 @@ const App = (() => {
         <div class="mmh-global-lock-card">
           <div class="mmh-spinner mmh-spinner-lg"></div>
           <div class="mmh-lock-title" id="mmhLockTitle">處理中…</div>
-          <div class="mmh-lock-sub" id="mmhLockSub">同步至試算表，請勿切換頁面</div>
+          <div class="mmh-lock-sub" id="mmhLockSub">同步至雲端資料庫，請勿切換頁面</div>
         </div>
       `;
       document.body.appendChild(globalEl);
@@ -198,12 +204,12 @@ const App = (() => {
 
       if (globalCount === 1) {
         const sub = el.querySelector('#mmhLockSub');
-        sub.textContent = '同步至試算表，請勿切換頁面';
+        sub.textContent = '同步至雲端資料庫，請勿切換頁面';
         el.classList.add('open');
         clearTimeout(slowTimer);
         slowTimer = setTimeout(() => {
           if (globalCount > 0) {
-            sub.textContent = 'Google 試算表回應較久，請稍候…';
+            sub.textContent = '雲端連線較慢，請稍候…';
           }
         }, 4500);
       }
@@ -325,17 +331,8 @@ const App = (() => {
     const releaseSync = SyncUI.acquire(action, opts);
 
     try {
-      const res = await fetch(GAS_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action, token, data })
-      });
-
-      if (!res.ok) {
-        throw new Error('網路連線異常（HTTP ' + res.status + '）');
-      }
-
-      const json = await res.json();
+      const backend = await getBackend();
+      const json = await backend.dispatchApi(action, token, data);
       if (!json.ok) {
         if ((json.code === 'UNAUTHORIZED' || json.code === 'ACCOUNT_DISABLED') && !opts.skipAuthRedirect) {
           clearSession();
@@ -807,6 +804,7 @@ const App = (() => {
 
   function boot(activePage, onReady) {
     onReadyCallback = onReady;
+    getBackend(); // 預載 Firebase SDK
     injectShell(activePage);
 
     const token = localStorage.getItem(STORAGE.TOKEN);
