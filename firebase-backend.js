@@ -384,11 +384,24 @@ async function appendInAppNotifications(targetAccounts, notifItem) {
   }
 }
 
+function computeUnreadCountForAccount(acc, visibleAnns, extraUnreadNotif = 0) {
+  if (!acc) return 0;
+  const uid = acc.userId || acc._id || '';
+  const unreadAnn = (visibleAnns || []).filter(a => !(Array.isArray(a.readBy) && a.readBy.includes(uid))).length;
+  const notifs = Array.isArray(acc.notifications) ? acc.notifications : [];
+  const unreadNotif = notifs.filter(n => !n.read).length + Math.max(0, Number(extraUnreadNotif) || 0);
+  return unreadAnn + unreadNotif;
+}
+
 async function sendOneSignalPush(opts) {
   try {
-    const allAccounts = await getAllDocs(COLS.ACCOUNTS);
-    let targetAccounts = [];
+    const [allAccounts, annRaw] = await Promise.all([
+      getAllDocs(COLS.ACCOUNTS),
+      getAllDocs(COLS.ANNOUNCEMENTS)
+    ]);
+    const visibleAnns = annRaw.filter(a => a.status === '顯示');
 
+    let targetAccounts = [];
     if (opts.userIds && opts.userIds.length > 0) {
       const idSet = new Set(opts.userIds);
       targetAccounts = allAccounts.filter(a => idSet.has(a.userId));
@@ -409,13 +422,21 @@ async function sendOneSignalPush(opts) {
       });
     }
 
-    const pushTargetIds = targetAccounts
-      .filter(a => opts.forcePush ? true : (a.pushEnabled !== false))
-      .map(a => a.userId);
+    const pushTargetAccounts = targetAccounts.filter(a => opts.forcePush ? true : (a.pushEnabled !== false));
+    const pushTargetIds = pushTargetAccounts.map(a => a.userId);
 
     if (pushTargetIds.length === 0) {
       return { sent: false, reason: 'ALL_MUTED', inAppDelivered: targetAccounts.length };
     }
+
+    // 計算每位收件人最新的未讀總數（家庭未讀公告 + 個人未讀系統通知），供桌面 App Icon 顯示精準數字
+    const badgeMap = {};
+    const extraNotif = opts.inApp !== false ? 1 : 0;
+    pushTargetAccounts.forEach(acc => {
+      badgeMap[acc.userId] = opts.type === 'account_deleted'
+        ? 0
+        : computeUnreadCountForAccount(acc, visibleAnns, extraNotif);
+    });
 
     const config = await getSystemConfigMap();
     const appUrl = (config.APP_URL || (typeof location !== 'undefined' ? location.origin : '')).replace(/\/$/, '');
@@ -429,7 +450,8 @@ async function sendOneSignalPush(opts) {
         userIds: pushTargetIds,
         path: opts.path || '',
         appUrl: appUrl,
-        data: opts.data || null
+        data: opts.data || null,
+        badgeMap: badgeMap
       })
     });
 
@@ -623,14 +645,17 @@ async function authenticateRequest(token, requiredLevel) {
 }
 
 async function buildAuthEnvelope(user) {
-  const [freshSnap, config, secret, pushAppId] = await Promise.all([
+  const [freshSnap, config, secret, pushAppId, annRaw] = await Promise.all([
     getDoc(doc(db, COLS.ACCOUNTS, user.userId)),
     getSystemConfigMap(),
     getAuthSecret(),
-    getPushAppId()
+    getPushAppId(),
+    getAllDocs(COLS.ANNOUNCEMENTS)
   ]);
 
   const fresh = freshSnap.exists() ? freshSnap.data() : user;
+  const visibleAnns = annRaw.filter(a => a.status === '顯示');
+  const unreadCount = computeUnreadCountForAccount(fresh, visibleAnns, 0);
   const lastLoginAt = await touchUserLastLogin(user.userId, false, fresh.lastLoginAt || '');
   const token = await createToken(user.userId, secret);
 
@@ -641,7 +666,8 @@ async function buildAuthEnvelope(user) {
       notifyOnExpense: parseBool(config.NOTIFY_ON_EXPENSE),
       notifyOnAnnouncement: parseBool(config.NOTIFY_ON_ANNOUNCEMENT)
     },
-    pushAppId
+    pushAppId,
+    unreadCount
   };
 }
 
@@ -652,11 +678,12 @@ async function handleAuthLogin(data) {
   const password = String(data.password || '').trim();
   if (!username || !password) throwApiError('VALIDATION_ERROR', '請輸入帳號與密碼');
 
-  const [accounts, secret, config, pushAppId] = await Promise.all([
+  const [accounts, secret, config, pushAppId, annRaw] = await Promise.all([
     getAllDocs(COLS.ACCOUNTS),
     getAuthSecret(),
     getSystemConfigMap(),
-    getPushAppId()
+    getPushAppId(),
+    getAllDocs(COLS.ANNOUNCEMENTS)
   ]);
 
   const acc = accounts.find(a => String(a.username || '').toLowerCase() === username);
@@ -664,6 +691,9 @@ async function handleAuthLogin(data) {
     throwApiError('UNAUTHORIZED', '帳號或密碼錯誤');
   }
   if (acc.status === '停用') throwApiError('ACCOUNT_DISABLED', '此帳號已被停用');
+
+  const visibleAnns = annRaw.filter(a => a.status === '顯示');
+  const unreadCount = computeUnreadCountForAccount(acc, visibleAnns, 0);
 
   const [lastLoginAt, token] = await Promise.all([
     touchUserLastLogin(acc.userId, true, acc.lastLoginAt),
@@ -678,7 +708,8 @@ async function handleAuthLogin(data) {
       notifyOnExpense: parseBool(config.NOTIFY_ON_EXPENSE),
       notifyOnAnnouncement: parseBool(config.NOTIFY_ON_ANNOUNCEMENT)
     },
-    pushAppId
+    pushAppId,
+    unreadCount
   };
 }
 

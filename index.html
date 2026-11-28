@@ -268,6 +268,9 @@
 
     function setUnread(count) {
       unreadCount = Math.max(0, Number(count) || 0);
+      if (window.App && typeof App.syncAppBadge === 'function') {
+        App.syncAppBadge(unreadCount);
+      }
       const bubble = document.getElementById('catBubble');
       const bubbleText = document.getElementById('catBubbleText');
       if (bubble && bubbleText) {

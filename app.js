@@ -24,7 +24,8 @@ const App = (() => {
     UI_DEFAULTS: 'mmh_ui_defaults',
     PUSH_SUBSCRIBED: 'mmh_push_subscribed',
     PUSH_ENABLED: 'mmh_push_enabled',
-    GUIDE_MD: 'mmh_guide_md_v2'
+    GUIDE_MD: 'mmh_guide_md_v2',
+    BADGE_COUNT: 'mmh_badge_count'
   };
 
   let currentUser = null;
@@ -85,10 +86,40 @@ const App = (() => {
     } catch {}
   }
 
+  async function syncAppBadge(count) {
+    const n = Math.max(0, Math.floor(Number(count) || 0));
+    try { localStorage.setItem(STORAGE.BADGE_COUNT, String(n)); } catch {}
+
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.setAppBadge === 'function') {
+        if (n > 0) {
+          await navigator.setAppBadge(n);
+        } else if (typeof navigator.clearAppBadge === 'function') {
+          await navigator.clearAppBadge();
+        } else {
+          await navigator.setAppBadge(0);
+        }
+      }
+    } catch {}
+
+    try {
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        const msg = { type: 'MMH_SYNC_BADGE', count: n };
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage(msg);
+        } else {
+          const reg = await navigator.serviceWorker.getRegistration('/');
+          if (reg && reg.active) reg.active.postMessage(msg);
+        }
+      }
+    } catch {}
+  }
+
   function clearSession() {
     localStorage.removeItem(STORAGE.TOKEN);
     localStorage.removeItem(STORAGE.USER);
     currentUser = null;
+    syncAppBadge(0);
   }
 
   function getUser() {
@@ -845,6 +876,10 @@ const App = (() => {
         if (OneSignal.Notifications && typeof OneSignal.Notifications.addEventListener === 'function') {
           OneSignal.Notifications.addEventListener('foregroundWillDisplay', (event) => {
             const n = event.notification || {};
+            const extra = n.additionalData || {};
+            if (extra.unreadCount !== undefined && !isNaN(Number(extra.unreadCount))) {
+              syncAppBadge(Number(extra.unreadCount));
+            }
             showForegroundPushBanner(n.title, n.body, n.launchURL);
             window.dispatchEvent(new CustomEvent('mmh:foregroundPush', { detail: n }));
           });
@@ -1352,6 +1387,9 @@ const App = (() => {
       uiDefaults = data.uiDefaults;
       localStorage.setItem(STORAGE.UI_DEFAULTS, JSON.stringify(data.uiDefaults));
     }
+    if (data.unreadCount !== undefined && !isNaN(Number(data.unreadCount))) {
+      syncAppBadge(Number(data.unreadCount));
+    }
     updateNavBellUI();
   }
 
@@ -1478,6 +1516,7 @@ const App = (() => {
     getPushState,
     requestPushPermission,
     openHelpModal,
-    updateNavBellUI
+    updateNavBellUI,
+    syncAppBadge
   };
 })();

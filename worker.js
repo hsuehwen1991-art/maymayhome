@@ -1,9 +1,9 @@
 /**
- * MayMayHome Cloudflare Worker
+ * MayMayHome Cloudflare Worker v2.1
  * 功能：
  * 1. GET  /api/health      - 健康檢查與推播環境變數狀態
  * 2. GET  /api/push-config - 回傳公開的 ONESIGNAL_APP_ID 供前端初始化 OneSignal SDK
- * 3. POST /api/push        - 安全轉發 OneSignal Web Push 推播（REST API Key 僅存於 Worker 環境變數）
+ * 3. POST /api/push        - 安全轉發 OneSignal Web Push 推播（支援 per-user badgeMap 夾帶精準未讀數字）
  * 4. 其餘路徑              - 交由 Cloudflare Static Assets 回傳 HTML / JS / CSS / 圖片
  */
 
@@ -17,6 +17,24 @@ function jsonRes(obj, status = 200) {
   });
 }
 
+async function sendOneSignalRequest(appId, apiKey, payload) {
+  const authPrefix = apiKey.startsWith('os_v2_') ? 'Key ' : 'Basic ';
+  const res = await fetch('https://api.onesignal.com/notifications', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Authorization': authPrefix + apiKey
+    },
+    body: JSON.stringify(payload)
+  });
+  const text = await res.text();
+  return {
+    ok: res.ok,
+    statusCode: res.status,
+    response: text
+  };
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -26,6 +44,7 @@ export default {
       return jsonRes({
         ok: true,
         service: 'MayMayHome Worker',
+        version: '2.1',
         pushConfigured: Boolean(env.ONESIGNAL_APP_ID && env.ONESIGNAL_REST_API_KEY)
       });
     }
@@ -38,7 +57,7 @@ export default {
       });
     }
 
-    // 3. 轉發 OneSignal 推播
+    // 3. 轉發 OneSignal 推播（支援依 badgeMap 分組，讓每位成員收到自己精準的桌面角標數字）
     if (url.pathname === '/api/push' && request.method === 'POST') {
       const appId = (env.ONESIGNAL_APP_ID || '').trim();
       const apiKey = (env.ONESIGNAL_REST_API_KEY || '').trim();
@@ -64,45 +83,64 @@ export default {
 
       const baseUrl = String(body.appUrl || url.origin).replace(/\/$/, '');
       const targetUrl = body.path ? (baseUrl + body.path) : baseUrl;
+      const baseData = (body.data && typeof body.data === 'object') ? body.data : {};
+      const badgeMap = (body.badgeMap && typeof body.badgeMap === 'object') ? body.badgeMap : null;
 
-      const payload = {
-        app_id: appId,
-        target_channel: 'push',
-        include_aliases: {
-          external_id: userIds
-        },
-        headings: {
-          en: title,
-          'zh-Hant': title
-        },
-        contents: {
-          en: message,
-          'zh-Hant': message
-        },
-        url: targetUrl
-      };
-
-      if (body.data) {
-        payload.data = body.data;
+      // 依每位收件人的未讀數字分組：相同未讀數合併單次發送，不同未讀數並行發送
+      const groups = new Map();
+      if (badgeMap) {
+        userIds.forEach((uid) => {
+          const rawVal = badgeMap[uid];
+          const badgeKey = (rawVal !== undefined && rawVal !== null && !isNaN(Number(rawVal)))
+            ? String(Math.max(0, Math.floor(Number(rawVal))))
+            : 'NONE';
+          if (!groups.has(badgeKey)) groups.set(badgeKey, []);
+          groups.get(badgeKey).push(uid);
+        });
+      } else {
+        groups.set('NONE', userIds);
       }
 
-      const authPrefix = apiKey.startsWith('os_v2_') ? 'Key ' : 'Basic ';
-
       try {
-        const res = await fetch('https://api.onesignal.com/notifications', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json; charset=utf-8',
-            'Authorization': authPrefix + apiKey
-          },
-          body: JSON.stringify(payload)
+        const tasks = Array.from(groups.entries()).map(([badgeKey, groupIds]) => {
+          const mergedData = { ...baseData };
+          if (badgeKey !== 'NONE') {
+            mergedData.unreadCount = Number(badgeKey);
+          }
+
+          const payload = {
+            app_id: appId,
+            target_channel: 'push',
+            include_aliases: {
+              external_id: groupIds
+            },
+            headings: {
+              en: title,
+              'zh-Hant': title
+            },
+            contents: {
+              en: message,
+              'zh-Hant': message
+            },
+            url: targetUrl
+          };
+
+          if (Object.keys(mergedData).length > 0) {
+            payload.data = mergedData;
+          }
+
+          return sendOneSignalRequest(appId, apiKey, payload);
         });
-        const text = await res.text();
+
+        const results = await Promise.all(tasks);
+        const anyOk = results.some(r => r.ok);
+        const first = results[0] || { statusCode: 200, response: '' };
         return jsonRes({
-          ok: res.ok,
-          sent: res.ok,
-          statusCode: res.status,
-          response: text
+          ok: anyOk,
+          sent: anyOk,
+          statusCode: first.statusCode,
+          groupsSent: results.length,
+          response: first.response
         }, 200);
       } catch (err) {
         return jsonRes({ ok: false, sent: false, reason: err.message }, 502);
